@@ -70,7 +70,8 @@ class CueRenderer:
     win_surf: pg.Surface
     win_res: tuple[int, int]
 
-    global_vao: gl.GLuint
-    fullscreen_imgui_ctx: CueImguiContext
+    model_vao: gl.GLuint
+    particle_vao: gl.GLuint
 
+    fullscreen_imgui_ctx: CueImguiContext
     post_passes: list[PostPass]

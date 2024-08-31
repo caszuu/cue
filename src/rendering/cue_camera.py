@@ -6,27 +6,25 @@ import imgui
 # from .cue_instance import MeshInstance
 from src.im2d.imgui_integ import CueImguiContext
 from src.cue_utils import mapped_list, mapped_refcount_list
-
-class MeshInstance:
-    def draw(e):
-        pass
+from .cue_instance import MeshInstance
+from .cue_resources import ShaderPipeline
 
 class RenderTarget:
     def try_view_frame():
         pass
 
 class Camera:
-    __slots__ = ["cam_fov", "cam_near_plane", "cam_far_plane", "cam_proj_view_matrix", "cam_pos", "cam_dir", "active_opaque_entities", "active_non_opaque_entities", "active_imgui_contexts", "attached_render_targets"]
+    __slots__ = ["cam_fov", "cam_near_plane", "cam_far_plane", "cam_proj_view_matrix", "cam_pos", "cam_dir", "active_opaque_instances", "active_non_opaque_instances", "attached_imgui_ctx", "attached_render_targets"]
 
     def __init__(self, fov: float = 90, near_plane: float = .1, far_plane: float = 100) -> None:
         self.cam_pos = pm.Vector3((0., 0., 0.))
         self.cam_dir = pm.Vector3((0., 0., -1.))
 
-        self.active_opaque_entities = []
-        self.active_non_opaque_entities = []
+        self.active_opaque_instances = []
+        self.active_non_opaque_instances = []
 
         self.attached_render_targets = mapped_refcount_list()
-        self.active_imgui_contexts = []
+        self.attached_imgui_ctx = None
 
         self.set_settings(fov, near_plane, far_plane)
 
@@ -39,17 +37,19 @@ class Camera:
 
     # == entity api ==
 
-    def activate_entity(self, e: MeshInstance) -> None:
+    def activate_instance(self, e: MeshInstance) -> None:
         if e.is_opaque:
-            self.active_opaque_entities.append(e)
+            self.active_opaque_instances.append(e)
         else:
-            self.active_non_opaque_entities.append(e)
+            self.active_non_opaque_instances.append(e)
 
-    def deactivate_entity(self, e: MeshInstance) -> None:
+        
+
+    def deactivate_instance(self, e: MeshInstance) -> None:
         if e.is_opaque:
-            self.active_opaque_entities.remove(e)
+            self.active_opaque_instances.remove(e)
         else:
-            self.active_non_opaque_entities.remove(e)
+            self.active_non_opaque_instances.remove(e)
 
     # call after updating camera settings to apply them
     def update_cam(self) -> None:
@@ -70,32 +70,41 @@ class Camera:
         # == render camera view ==
 
         gl.glBindFramebuffer(gl.GL_FRAMEBUFFER, fb)
+
         # TODO: clear
+        # TODO: setup camera uniform
+
+        draw = MeshInstance.draw
+        pipe_bind = ShaderPipeline.bind
+        vao_bind = gl.glBindVertexArray
 
         # opaque pass
 
-        draw = MeshInstance.draw
-        for e in self.active_opaque_entities:
-            draw(e)
+        for pipe in self.active_opaque_instances:
+            vao_bind(pipe[0])
+            pipe_bind(pipe[1])
+
+            for ins in pipe[2]:
+                draw(ins)
 
         # non-opaque pass
         # TODO: depth based ordering (?)
 
-        for e in self.active_non_opaque_entities:
-            draw(e)
+        for pipe in self.active_non_opaque_instances:
+            vao_bind(pipe[0])
+            pipe_bind(pipe[1])
+
+            for ins in pipe[2]:
+                draw(ins)
 
         # == imgui/im2d overlays ==
 
-        set_ctx = CueImguiContext.set_as_current_context
-        imgui_render = imgui.render
-        get_draw_data = imgui.get_draw_data
-        ctx_render = CueImguiContext.render
+        ctx = self.attached_imgui_ctx
+        if not ctx == None:
+            ctx.set_as_current_context()
 
-        for ctx in self.active_imgui_contexts:
-            set_ctx(ctx)
-
-            imgui_render()
-            ctx_render(get_draw_data())
+            imgui.render()
+            ctx.render(imgui.get_draw_data())
 
     # camera settings
     cam_fov: float
@@ -108,9 +117,30 @@ class Camera:
     # camera state
     cam_proj_view_matrix: np.ndarray
 
-    active_opaque_entities: list[MeshInstance]
-    active_non_opaque_entities: list[MeshInstance]
-    active_imgui_contexts: list[CueImguiContext]
+    active_opaque_instances: mapped_list[tuple[
+        gl.GLuint,      # draw_vao
+        ShaderPipeline, # draw_pipeline
+        mapped_list[
+            MeshInstance,
+            int
+        ]],
+        int
+    ]
+
+    active_non_opaque_instances: mapped_list[tuple[
+        gl.GLuint,      # draw_vao
+        ShaderPipeline, # draw_pipeline
+        mapped_list[
+            MeshInstance,
+            int
+        ]],
+        int
+    ]
+
+    # the imgui context that will be rendered with this camera
+    # note: this context is rendered *before* the post-processing stack, for game ui
+    #       use the Renderer.fullscreen_imgui_ctx which is rendered after post-processing
+    attached_imgui_ctx: CueImguiContext | None
 
     attached_render_targets: mapped_refcount_list[RenderTarget, int]
     

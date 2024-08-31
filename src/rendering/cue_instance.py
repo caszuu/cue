@@ -1,33 +1,32 @@
 import OpenGL.GL as gl
+from .cue_resources import GPUMesh, ShaderPipeline
 
 class CueEntity:
     pass
 
-# == cue OpenGL renderer backend ==
+# == cue rendering instances ==
+
+# rendering instances contain semi-local runtime buffers
+# for each object being instanced (mesh, point, etc.)
 
 class MeshInstance:
     __slots__ = ["mesh", "pipeline", "is_opaque", "entity"]
 
     # TODO: add instancing
 
-    def __init__(self, entity: CueEntity, mesh: str, vs: str, fs: str, is_opaque: bool = True) -> None:
+    def __init__(self, entity: CueEntity, mesh: GPUMesh, pipeline: ShaderPipeline, is_opaque: bool = True) -> None:
         self.entity = entity
-        self.mesh = VertexMesh(mesh)
-        self.pipeline = ShaderPipeline(vs, fs)
+        self.mesh = mesh
+        self.pipeline = pipeline
 
         self.is_opaque = is_opaque
 
-        pass # TODO
+        # TODO: create instancing device buffers
 
     def draw(self) -> None:
-        self.pipeline.bind()
-        self.mesh.bind_and_draw()
+        gl.glDrawElements(gl.GL_TRIANGLES, self.vertex_count, gl.GL_UNSIGNED_INT, 0)
 
-    def order_depth(self, cam) -> float:
-        x = cam.project_vec(self.entity.transform_position) - cam.cam_pos
-        return np.sqrt(np.dot(x, x))
-
-    mesh: VertexMesh
+    mesh: GPUMesh
     pipeline: ShaderPipeline
 
     entity: CueEntity
