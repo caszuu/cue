@@ -1,5 +1,6 @@
 import pygame as pg
 import OpenGL.GL as gl
+import numpy as np
 import os
 import struct
 
@@ -8,11 +9,11 @@ import cue_utils as utils
 # == Cue Resource Types (mostly rendering related) ==
 
 class GPUMesh:
-    __slots__ = ["mesh_vao", "mesh_ebo", "mesh_vbo", "vertex_count"]
+    __slots__ = ["mesh_vao", "mesh_ebo", "mesh_vbo", "vertex_count", "element_count"]
 
-    def __init__(self, path: str, vao: gl.GLuint) -> None:
-        if not os.path.exists(path):
-            utils.abort(f"Can't find a mesh resource in {path}")
+    def __init__(self, vao: gl.GLuint) -> None:
+        # if not os.path.exists(path):
+        #     utils.abort(f"Can't find a mesh resource in {path}")
 
         # load mesh data from disk
 
@@ -41,16 +42,14 @@ class GPUMesh:
 
         # for i in index_set:
         #     vert_buf += struct.pack("f", *scene.vertices[i])
-        #     # TODO: tex uvs and vert colors
 
         # print(scene.vertices)
 
         # gen opengl buffers
 
         self.mesh_vao = vao
-        self.mesh_vbo, self.mesh_ebo = gl.glGenBuffers(2)
-
-        utils.debug(f"[res] new GPUMesh (name: {os.path.basename(path)} loaded")
+        self.mesh_vbo = gl.glGenBuffers(1)
+        self.mesh_ebo = -1
 
         # gl.glBindBuffer(gl.GL_ARRAY_BUFFER, self.mesh_vbo)
         # gl.glBufferData(gl.GL_ARRAY_BUFFER, len(vert_buf), vert_buf, gl.GL_STATIC_DRAW)
@@ -61,16 +60,40 @@ class GPUMesh:
         # # gl.glVertexAttribPointer(0, 3, gl.GL_FLOAT, gl.GL_FALSE, 3 * 4, 0)
         # gl.glEnableVertexAttribArray(0)
 
-        # self.vertex_count = len(index_set)
+        self.vertex_count = 0
+        self.element_count = 0
 
     def __del__(self) -> None:
-        gl.glDeleteBuffers(2, [self.mesh_vbo, self.mesh_ebo])
+        gl.glDeleteBuffers(2, np.array([self.mesh_vbo] + ([self.mesh_ebo] if self.mesh_ebo != -1 else [])))
+
+    def bind(self) -> None:
+        gl.glBindBuffer(gl.GL_ARRAY_BUFFER, self.mesh_vbo)
+
+        if self.mesh_ebo != -1:
+            gl.glBindBuffer(gl.GL_ELEMENT_ARRAY_BUFFER, self.mesh_ebo)
+
+    # mutator funcs
+
+    def write_to(self, vbo_data = b"", vertex_count: int = 0, ebo_data = b"", element_count = 0) -> None:
+        if len(vbo_data):
+            gl.glBindBuffer(gl.GL_ARRAY_BUFFER, self.mesh_vbo)
+            gl.glBufferData(gl.GL_ARRAY_BUFFER, vbo_data, gl.GL_STATIC_DRAW)
+            self.vertex_count = vertex_count
+
+        if len(ebo_data):
+            if self.mesh_ebo == -1:
+                self.mesh_ebo = gl.glGenBuffers(1)
+
+            gl.glBindBuffer(gl.GL_ELEMENT_ARRAY_BUFFER, self.mesh_ebo)
+            gl.glBufferData(gl.GL_ELEMENT_ARRAY_BUFFER, ebo_data, gl.GL_STATIC_DRAW)
+            self.element_count = element_count
 
     mesh_vbo: gl.GLuint
     mesh_ebo: gl.GLuint
     mesh_vao: gl.GLuint
 
     vertex_count: int
+    element_count: int
 
 class GPUTexture:
     __slots__ = ["texture_handle", "texture_format", "texture_size"]
@@ -94,10 +117,18 @@ class GPUTexture:
 
     # mutator funcs; note: binds to current active texture and leaves it bound
 
-    def write_to(self, surf: pg.Surface, gl_format: gl.GLuint = gl.GL_RGBA, pg_format: str = "RGBA") -> None:
+    def write_to(self, surf: pg.Surface, gl_format: gl.GLenum = gl.GL_RGBA, gl_type: gl.GLenum = gl.GL_UNSIGNED_BYTE, pg_format: str = "RGBA") -> None:
         gl.glBindTexture(gl.GL_TEXTURE_2D, self.texture_handle)
-
+        
         gl.glTexImage2D(gl.GL_TEXTURE_2D, 0, gl_format, surf.get_width(), surf.get_height(), 0, gl_format, gl.GL_UNSIGNED_BYTE, pg.image.tobytes(surf, pg_format, flipped=True))
+
+        self.texture_format = gl_format
+        self.texture_size = surf.get_size()
+
+    def init_null(self, size: tuple[int, int], gl_format: gl.GLenum, gl_type: gl.GLenum) -> None:
+        gl.glBindTexture(gl.GL_TEXTURE_2D, self.texture_handle)
+        
+        gl.glTexImage2D(gl.GL_TEXTURE_2D, 0, gl_format, size[0], size[1], 0, gl_format, gl_type, None)
 
         self.texture_format = gl_format
         self.texture_size = surf.get_size()
@@ -152,12 +183,10 @@ class ShaderPipeline:
         gl.glLinkProgram(p)
         result = gl.glGetProgramiv(p, gl.GL_LINK_STATUS)
 
-        if result:
+        if not result:
             log = gl.glGetProgramInfoLog(p)
 
             utils.abort(f"error while linking a ShaderPipeline with {os.path.basename(vs_path)} and {os.path.basename(fs_path)}: {log}")
-
-        utils.debug(f"[res] new ShaderPipeline (vs: {os.path.basename(vs_path)}; fs: {os.path.basename(fs_path)}) loaded")
 
         # TODO: uniform and texture bindings
 
