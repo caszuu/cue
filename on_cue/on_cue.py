@@ -39,7 +39,7 @@ ui_ctx = global_renderer.fullscreen_imgui_ctx
 t = time.perf_counter()
 
 while True:
-    # == evemt poll ==
+    # == event poll ==
 
     for e in pg.event.get():
         ui_ctx.process_key_event(e)

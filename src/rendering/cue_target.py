@@ -1,8 +1,9 @@
 import OpenGL.GL as gl
 
-from .cue_camera import Camera
-from .cue_scene import RenderScene
 from .cue_resources import GPUTexture
+
+# note: non-cycle-causing import only for type hints
+from . import cue_camera as cam, cue_scene as sc
 
 # an off-screen framebuffer that a Camera can render into, later can be used as a texture in the scene
 
@@ -66,5 +67,5 @@ class RenderTarget:
     target_fb: gl.GLuint
     target_attachments: list[GPUTexture]
 
-    target_camera: Camera
-    target_scene: RenderScene
+    target_camera: 'cam.Camera'
+    target_scene: 'sc.RenderScene'

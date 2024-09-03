@@ -6,10 +6,11 @@ import imgui
 import math
 
 from im2d.imgui_integ import CueImguiContext
-from cue_utils import mapped_list, mapped_refcount_list
 from .cue_resources import ShaderPipeline
 from .cue_batch import MeshBatch
-from .cue_scene import RenderScene
+
+# note: non-cycle-causing import only for type hints
+from . import cue_scene as sc
 
 class Camera:
     __slots__ = ["cam_fov", "cam_near_plane", "cam_far_plane", "cam_proj_mat", "cam_proj_view_matrix", "cam_pos", "cam_dir", "attached_imgui_ctx"]
@@ -24,6 +25,7 @@ class Camera:
         self.set_view(pm.Vector3((0., 0., 0.)), pm.Vector3((0., 0., -1.)))
 
     # == projection / view matrix api ==
+    # all matrix formulas taken from: https://songho.ca/opengl/gl_projectionmatrix.html
 
     def set_perspective(self, aspect_ratio: float, fov: float = 90, near_plane: float = .1, far_plane: float = 100) -> None:
         self.cam_fov = fov
@@ -61,7 +63,7 @@ class Camera:
     def bind_cam(self, bind_loc: gl.GLuint) -> None:
         gl.glUniformMatrix4fv(bind_loc, 1, False, self.cam_proj_view_matrix)
 
-    def view_frame(self, fb: int, scene: RenderScene) -> None:
+    def view_frame(self, fb: int, scene: 'sc.RenderScene') -> None:
         # == pre-view render targets ==
 
         scene.try_view_deps()

@@ -1,8 +1,10 @@
 import OpenGL.GL as gl
 
-from cue_utils import mapped_refcount_list
 from .cue_resources import ShaderPipeline
 from .cue_batch import MeshBatch
+
+# note: non-cycle-causing import only for type hints
+from . import cue_target as tar
 
 # an ordered collection of rendering batches, usually represents a "scene"
 
@@ -13,7 +15,7 @@ class RenderScene:
         self.attached_opaque_batches = {}
         self.attached_non_opaque_batches = {}
 
-        self.attached_render_targets = mapped_refcount_list()
+        self.attached_render_targets = {}
 
     # == batch api ==
 
@@ -30,7 +32,7 @@ class RenderScene:
             attached_batches[batch.draw_state] = scene_batch_buf
             return
 
-        # note: no KeyError raised when batch already present
+        # note: no KeyError raised / no check when batch already present
         #       if two batches are hash equivalent, the override should also be equivalent
         scene_batch_buf[batch] = None
 
@@ -46,8 +48,8 @@ class RenderScene:
     # == frame api ==
 
     def try_view_deps(self) -> None:
-        for target in self.attached_render_targets.list_buf:
-            if target.try_view_frame(): break
+        for target in self.attached_render_targets:
+            target.try_view_frame()
 
     def frame(self) -> None:
         draw = MeshBatch.draw
@@ -96,5 +98,5 @@ class RenderScene:
         dict[MeshBatch] # key only
     ]
 
-    attached_render_targets: mapped_refcount_list[int, int]
+    attached_render_targets: dict['tar.RenderTarget', int] # key: render target, value: ref count
     
