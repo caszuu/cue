@@ -1,6 +1,8 @@
 import pygame as pg
 import pygame.math as pm
 
+import .cue_entity_types as en
+
 # == Cue entity type example implementation ==
 
 # the following implements a very simple entity type, it's a radio which you can turn on and off

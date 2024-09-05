@@ -1,6 +1,8 @@
 import pygame as pg
 import pygame.math as pm
 
+from . import cue_entity_types as en
+
 # == Cue entity type example implementation ==
 
 # this is the same as `bt_example_radio.py` but implemented with a python class instead of a dict

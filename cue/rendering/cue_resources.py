@@ -4,7 +4,7 @@ import numpy as np
 import os
 import struct
 
-import cue_utils as utils
+from .. import cue_utils as utils
 
 # == Cue Resource Types (mostly rendering related) ==
 

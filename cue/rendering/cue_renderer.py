@@ -2,10 +2,9 @@ import pygame as pg
 import OpenGL.GL as gl
 
 import imgui
-from imgui.integrations.pygame import PygameRenderer
 
 from .cue_camera import Camera
-from im2d.imgui_integ import CueImguiContext
+from ..im2d.imgui_integ import CueImguiContext
 
 import time
 

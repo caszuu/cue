@@ -5,7 +5,7 @@ import imgui
 
 import math
 
-from im2d.imgui_integ import CueImguiContext
+from ..im2d.imgui_integ import CueImguiContext
 from .cue_resources import ShaderPipeline
 from .cue_batch import MeshBatch
 
