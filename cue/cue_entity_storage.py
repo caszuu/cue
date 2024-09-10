@@ -1,5 +1,5 @@
-from entities.cue_entity_types import EntityTypeRegistry
-from typing import Any
+from .entities.cue_entity_types import EntityTypeRegistry
+from typing import Any, Callable
 
 # == Cue Entity System ==
 
@@ -7,6 +7,14 @@ class EntityStorage:
 
     def __init__(self) -> None:
         pass
+
+    def reset(self) -> None:
+        for en in self.entity_storage:
+            en_despawn = EntityTypeRegistry.despawn_types[en[0]]
+            en_despawn(en)
+
+        self.active_tick_calls.clear()
+        self.active_event_calls.clear()
 
     # == entity api ==
 

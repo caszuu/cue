@@ -25,7 +25,7 @@ class PostPass:
 # TODO: double-buffering (both CueRenderer and RenderTargets)
 
 class CueRenderer:
-    __slots__ = ["win_surf", "win_res", "model_vao", "post_passes", "fullscreen_imgui_ctx"]
+    __slots__ = ["win_surf", "win_res", "win_aspect", "model_vao", "post_passes", "fullscreen_imgui_ctx"]
 
     def __init__(self, res: tuple[int, int] = (0, 0), fullscreen: bool = False, vsync: bool = True) -> None:
         pg.init()
@@ -42,6 +42,7 @@ class CueRenderer:
             pg.display.toggle_fullscreen()
         
         self.win_res = self.win_surf.get_size()
+        self.win_aspect = self.win_res[0] / self.win_res[1]
         self.fullscreen_imgui_ctx = CueImguiContext(self.win_res)
 
         self.post_passes = []
@@ -81,9 +82,10 @@ class CueRenderer:
 
         pg.display.flip()
 
-    # OpenGL mode pygame surface
+    # OpenGL mode pygame surface (unused)
     win_surf: pg.Surface
     win_res: tuple[int, int]
+    win_aspect: float
 
     model_vao: gl.GLuint
     particle_vao: gl.GLuint

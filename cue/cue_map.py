@@ -2,8 +2,9 @@ import json
 import copy
 import os
 
-from entities.cue_entity_types import EntityTypeRegistry
+from .entities.cue_entity_types import EntityTypeRegistry
 from .cue_entity_storage import EntityStorage
+# from .cue_asset_manager import AssetManager
 
 # == Cue Map Format and Loader ==
 
@@ -57,13 +58,13 @@ from .cue_entity_storage import EntityStorage
 MAP_LOADER_VERSION = 1
 
 # loads and parses a map file into EntityStorage and AssetManager, this function should be called within a "loading screen" context
-def load_map(file_path: str, en_storage: EventStorage) -> None:    
+def load_map(file_path: str, en_storage: EntityStorage, asset_mgr) -> None:    
     # read the map file
     
     with open(file_path, 'r') as f:
         map_file = json.load(f)
 
-    # validate map
+    en_storage.reset()
 
     try:
         # validate map
@@ -77,12 +78,11 @@ def load_map(file_path: str, en_storage: EventStorage) -> None:
 
         # load map data into Cue subsystems
 
-        assets.preload(map_file["cmf_header"]["asset_list"])
+        asset_mgr.preload(map_file["cmf_header"]["asset_list"])
+        starts_with = str.startswith
 
         for e in map_file["cmf_data"]["map_entities"]:
             en_data = e["en_data"]
-
-            starts_with = str.startswith
 
             # process string param types
             for param in en_data.values():
@@ -104,6 +104,8 @@ def load_map(file_path: str, en_storage: EventStorage) -> None:
 
     except KeyError:
         raise ValueError("corrupted map file, missing json fields")
+
+# == Map Compiler ==
 
 # saves a map file to disk from an `entity_export`, this function is really only used in the on-cue editor for map compilation
 # *warn*: this func will not hesitate to override existing files!

@@ -28,7 +28,7 @@ class EntityType:
     despawn_call: Callable[[Any], None] | None
 
     tick_call: Callable[[Any], None] | None
-    event_call: Callable[[Any, pg.event.Event]] | None
+    event_call: Callable[[Any, pg.event.Event], None] | None
 
     # extra metadata
     assigned_events: list[int] = []
