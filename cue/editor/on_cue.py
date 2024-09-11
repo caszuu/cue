@@ -46,6 +46,32 @@ def reset_editor_ui():
     EditorState.is_settings_win_open = False
     EditorState.on_ensure_saved_success = None
 
+# the last data dump before crashing, trying to lose minimal data here...
+def exception_backup_save() -> None:
+    # find a filename that doesn't exists
+
+    path = "crash_backup_dump.pkl"
+
+    i = 1
+    while os.path.exists(path):
+        path = f"crash_backup_dump_{i}.pkl"
+        i += 1
+
+    utils.error(f"Crash detected! Attempting to do a crash backup to {path}!")
+
+    # dump map data before crashing
+
+    dump_data = {}
+
+    try: dump_data["editor_entity_data"] = EditorState.entity_data_storage
+    except: pass
+
+    try: dump_data["game_entity_data"] = GameState.entity_storage.entity_storage
+    except: pass
+
+    with open(path, 'wb') as f:
+        pickle.dump(dump_data, f)
+
 def ensure_map_saved(on_success: Callable[[], None]) -> bool:
     if EditorState.has_unsaved_changes == False:
         on_success()
@@ -84,7 +110,18 @@ def editor_save_map(path: str | None) -> None:
     
     utils.info(f"[editor] Compiling map file {path}..")
 
-    
+    # create entity exports
+
+    entity_export_buf = {}
+
+    for en_name, en in EditorState.entity_data_storage.items():
+        en_type = GameState.entity_storage[en_name][1]
+
+        entity_export_buf[en_name] = (en_name, en_type, en)
+
+    # compile map file
+
+    map.compile_map(path, entity_export_buf)
     
 # this is the `main` editor func where we dispatch work based on user's input
 def editor_process_ui():
@@ -171,34 +208,39 @@ def start_editor():
     GameState.entity_storage = EntityStorage()
     editor_new_map()
 
-    while True:
-        # == event poll ==
+    try:
+        while True:
+            # == event poll ==
 
-        for e in pg.event.get():
-            EditorState.ui_ctx.process_key_event(e)
+            for e in pg.event.get():
+                EditorState.ui_ctx.process_key_event(e)
 
-            if e.type == pg.MOUSEMOTION:
-                EditorState.ui_ctx.set_mouse_input(e.pos)
+                if e.type == pg.MOUSEMOTION:
+                    EditorState.ui_ctx.set_mouse_input(e.pos)
 
-            elif e.type == pg.VIDEORESIZE:
-                EditorState.ui_ctx.resize_display(e.size)
+                elif e.type == pg.VIDEORESIZE:
+                    EditorState.ui_ctx.resize_display(e.size)
 
-            elif e.type == pg.QUIT:
-                exit(0) 
+                elif e.type == pg.QUIT:
+                    sys.exit(0)
 
-        # == tick ==
+            # == tick ==
 
-        dt = time.perf_counter() - t
-        t = time.perf_counter()
+            dt = time.perf_counter() - t
+            t = time.perf_counter()
 
-        EditorState.ui_ctx.delta_time(dt)
+            EditorState.ui_ctx.delta_time(dt)
 
-        # == frame ==
+            # == frame ==
 
-        EditorState.ui_ctx.set_as_current_context()
-        imgui.new_frame()
+            EditorState.ui_ctx.set_as_current_context()
+            imgui.new_frame()
 
-        editor_process_ui()
+            editor_process_ui()
 
-        EditorState.pov_camera.set_view(pm.Vector3(math.sin(t), 0., 0.), pm.Vector3(0., 0., 1.))
-        EditorState.renderer.frame(EditorState.pov_camera, GameState.active_scene)
+            EditorState.pov_camera.set_view(pm.Vector3(math.sin(t), 0., 0.), pm.Vector3(0., 0., 1.))
+            EditorState.renderer.frame(EditorState.pov_camera, GameState.active_scene)
+
+    except Exception: # all-catch crash handler, just try to backup unsaved data before crashing
+        exception_backup_save()
+        raise

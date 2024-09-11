@@ -196,7 +196,7 @@ class ShaderPipeline:
 
         self.shader_program = p
     
-        # setup uniform block bindings 
+        # setup uniform block bindings
 
         g_loc = gl.glGetUniformBlockIndex(p, "cue_global_buf")
         if g_loc != gl.GL_INVALID_INDEX:
