@@ -6,7 +6,10 @@ from typing import Any, Callable
 class EntityStorage:
 
     def __init__(self) -> None:
-        pass
+        self.entity_storage = {}
+
+        self.active_tick_calls = {}
+        self.active_event_calls = {}
 
     def reset(self) -> None:
         for en in self.entity_storage:

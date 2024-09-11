@@ -1,9 +1,12 @@
-import os, sys, time
+import os, sys, time, pickle
 from typing import Callable
 
-import pygame as pg
+import pygame as pg, pygame.math as pm
 import numpy as np
 import imgui
+
+from ..cue_state import GameState
+from ..cue_entity_storage import EntityStorage
 
 from ..rendering.cue_renderer import CueRenderer
 from ..rendering.cue_camera import Camera
@@ -63,16 +66,17 @@ def editor_new_map():
     reset_editor_ui()
     
     EditorState.pov_camera = Camera(EditorState.renderer.win_aspect)
-    EditorState.temp_scene = RenderScene()
+    GameState.active_scene = RenderScene()
+    GameState.entity_storage.reset()
 
-    pipeline = res.ShaderPipeline("cue/editor/fs_trig.vert", "cue/editor/menu.frag")
+    pipeline = res.ShaderPipeline("cue/editor/test_trig.vert", "cue/editor/menu.frag")
     mesh = res.GPUMesh(EditorState.renderer.model_vao)
     mesh.write_to(np.array([0, 1, 0, 1, 1, 0, 1, 0, 0], dtype=np.dtypes.Float32DType), 3)
 
     mesh_ins = bat.MeshBatch(None, res.GPUMesh(EditorState.renderer.model_vao), pipeline)
     mesh_ins.draw_count = 3
 
-    EditorState.temp_scene.append(mesh_ins)
+    GameState.active_scene.append(mesh_ins)
 
 def editor_save_map(path: str | None) -> None:
     if path == None:
@@ -151,6 +155,8 @@ def editor_process_ui():
 
         imgui.end_popup()
 
+import math
+
 def start_editor():
     print(f"\n[{utils.bold_escape}info{utils.reset_escape}] [bootstrap] starting the On-Cue Editor")
 
@@ -162,6 +168,7 @@ def start_editor():
     EditorState.ui_ctx = EditorState.renderer.fullscreen_imgui_ctx
     t = time.perf_counter()
 
+    GameState.entity_storage = EntityStorage()
     editor_new_map()
 
     while True:
@@ -193,4 +200,5 @@ def start_editor():
 
         editor_process_ui()
 
-        EditorState.renderer.frame(EditorState.pov_camera, EditorState.temp_scene)
+        EditorState.pov_camera.set_view(pm.Vector3(math.sin(t), 0., 0.), pm.Vector3(0., 0., 1.))
+        EditorState.renderer.frame(EditorState.pov_camera, GameState.active_scene)

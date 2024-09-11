@@ -1,3 +1,4 @@
+import sys
 from typing import TypeVar, Generic
 
 # == Cue Utilities ==
@@ -22,4 +23,4 @@ def error(message: str) -> None:
 
 def abort(message: str) -> None:
     print(f"[{error_escape}critical{reset_escape}] {message}")
-    exit(-1)
+    sys.exit(-1)

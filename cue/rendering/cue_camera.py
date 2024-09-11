@@ -12,8 +12,10 @@ from .cue_batch import MeshBatch
 # note: non-cycle-causing import only for type hints
 from . import cue_scene as sc
 
+CAMERA_UNIFORM_SIZE = 4 * 4 * np.dtype('float32').itemsize
+
 class Camera:
-    __slots__ = ["cam_fov", "cam_near_plane", "cam_far_plane", "cam_proj_mat", "cam_proj_view_matrix", "cam_pos", "cam_dir", "attached_imgui_ctx"]
+    __slots__ = ["cam_fov", "cam_near_plane", "cam_far_plane", "cam_proj_mat", "cam_view_proj_matrix", "cam_ubo", "cam_pos", "cam_dir", "attached_imgui_ctx"]
 
     def __init__(self, aspect_ratio: float, fov: float = 90, near_plane: float = .1, far_plane: float = 100) -> None:
         self.cam_pos = pm.Vector3((0., 0., 0.))
@@ -21,8 +23,15 @@ class Camera:
 
         self.attached_imgui_ctx = None
 
+        self.cam_ubo = gl.glGenBuffers(1)
+        gl.glBindBuffer(gl.GL_UNIFORM_BUFFER, self.cam_ubo)
+        gl.glBufferData(gl.GL_UNIFORM_BUFFER, CAMERA_UNIFORM_SIZE, None, gl.GL_DYNAMIC_DRAW)
+
         self.set_perspective(aspect_ratio, fov, near_plane, far_plane)
-        self.set_view(pm.Vector3((0., 0., 0.)), pm.Vector3((0., 0., -1.)))
+        self.set_view(pm.Vector3((0., 0., 0.)), pm.Vector3((0., 0., 1.)))
+
+    def __del__(self) -> None:
+        gl.glDeleteBuffers(1, np.array([self.cam_ubo]))
 
     # == projection / view matrix api ==
     # all matrix formulas taken from: https://songho.ca/opengl/gl_projectionmatrix.html
@@ -34,14 +43,16 @@ class Camera:
 
         # projection matrix
 
-        fov_tan = math.tan(fov / 2)
+        fov_tan = math.tan(math.radians(fov / 2))
         right = near_plane * fov_tan
         top = right / aspect_ratio
 
-        self.cam_proj_mat = np.array([[near_plane / right, 0, 0, 0],
-                             [0, near_plane / top, 0, 0],
-                             [0, 0, -(far_plane + near_plane) / (far_plane - near_plane), -(2 * far_plane * near_plane) / (far_plane - near_plane)],
-                             [0, 0, -1, 0]], dtype=np.dtypes.Float32DType)
+        self.cam_proj_mat = np.array([
+            [near_plane / right, 0, 0, 0],
+            [0, near_plane / top, 0, 0],
+            [0, 0, -(far_plane + near_plane) / (far_plane - near_plane), -(2 * far_plane * near_plane) / (far_plane - near_plane)],
+            [0, 0, -1, 0],
+        ], dtype=np.float32)
 
     def set_orthographic(self, view_size: tuple[float, float], near_plane: float = .1, far_plane: float = 100) -> None:
         self.cam_fov = None # fov is invalid for orthographic
@@ -51,17 +62,23 @@ class Camera:
         z_div = -(far_plane / near_plane)
 
         self.cam_proj_mat = np.array([[1 / view_size[0], 0, 0, 0],
-                             [0, 1 / view_size[1], 0, 0],
-                             [0, 0, 2 / z_div, (far_plane + near_plane) / z_div],
-                             [0, 0, 0, 1]])
+            [0, 1 / view_size[1], 0, 0],
+            [0, 0, 2 / z_div, (far_plane + near_plane) / z_div],
+            [0, 0, 0, 1]
+        ], dtype=np.float32)
 
     def set_view(self, pos: pm.Vector3, dir: pm.Vector3) -> None:
-        pass
+        self.cam_view_proj_matrix = np.array([
+            [1, 0, 0, -pos.x],
+            [0, 1, 0, -pos.y],
+            [0, 0, 1, -pos.z],
+            [0, 0, 0, 1],
+        ], dtype=np.float32) @ self.cam_proj_mat
+
+        gl.glBindBuffer(gl.GL_UNIFORM_BUFFER, self.cam_ubo)
+        gl.glBufferSubData(gl.GL_UNIFORM_BUFFER, 0, np.transpose(self.cam_view_proj_matrix))
 
     # == camera api ==
-
-    def bind_cam(self, bind_loc: gl.GLuint) -> None:
-        gl.glUniformMatrix4fv(bind_loc, 1, False, self.cam_proj_view_matrix)
 
     def view_frame(self, fb: int, scene: 'sc.RenderScene') -> None:
         # == pre-view render targets ==
@@ -71,9 +88,11 @@ class Camera:
         # == render camera view ==
 
         gl.glBindFramebuffer(gl.GL_FRAMEBUFFER, fb)
+        gl.glBindBufferBase(gl.GL_UNIFORM_BUFFER, 1, self.cam_ubo)
 
         # TODO: clear
-        # TODO: setup camera uniform
+        gl.glClearColor(0., 0., 0., 1.)
+        gl.glClear(gl.GL_COLOR_BUFFER_BIT)
 
         scene.frame()
 
@@ -98,6 +117,8 @@ class Camera:
     # camera state
     cam_proj_mat: np.ndarray
     cam_proj_view_matrix: np.ndarray
+
+    cam_ubo: gl.GLuint
 
     # the imgui context that will be rendered with this camera
     # note: this context is rendered *before* the post-processing stack, for game ui

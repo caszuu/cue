@@ -64,7 +64,9 @@ class GPUMesh:
         self.element_count = 0
 
     def __del__(self) -> None:
-        gl.glDeleteBuffers(2, np.array([self.mesh_vbo] + ([self.mesh_ebo] if self.mesh_ebo != -1 else [])))
+        bufs = [self.mesh_vbo, self.mesh_ebo] if self.mesh_ebo != 1 else [self.mesh_vbo]
+
+        gl.glDeleteBuffers(len(bufs), np.array(bufs))
 
     def bind(self) -> None:
         gl.glBindBuffer(gl.GL_ARRAY_BUFFER, self.mesh_vbo)
@@ -141,6 +143,10 @@ class GPUTexture:
     texture_format: gl.GLuint
     texture_size: tuple[int, int]
 
+class CueGLUniformBindings:
+    GLOBAL = 0
+    CAMERA = 1
+
 # yes, this is a Vulkan approach to a OpenGL api resource (Programs)
 # but it's still more efficient then the conventional OpenGL way
 #
@@ -188,13 +194,19 @@ class ShaderPipeline:
 
             utils.abort(f"error while linking a ShaderPipeline with {os.path.basename(vs_path)} and {os.path.basename(fs_path)}: {log}")
 
-        # TODO: uniform and texture bindings
-
         self.shader_program = p
     
+        # setup uniform block bindings 
+
+        g_loc = gl.glGetUniformBlockIndex(p, "cue_global_buf")
+        if g_loc != gl.GL_INVALID_INDEX:
+            gl.glUniformBlockBinding(p, g_loc, CueGLUniformBindings.GLOBAL)
+
+        c_loc = gl.glGetUniformBlockIndex(p, "cue_camera_buf")
+        if c_loc != gl.GL_INVALID_INDEX:
+            gl.glUniformBlockBinding(p, c_loc, CueGLUniformBindings.CAMERA)
+
     def bind(self) -> None:
         gl.glUseProgram(self.shader_program)
-
-        # TODO: uniform and texture binds
 
     shader_program: gl.GLuint
