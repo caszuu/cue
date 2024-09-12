@@ -24,3 +24,33 @@ def error(message: str) -> None:
 def abort(message: str) -> None:
     print(f"[{error_escape}critical{reset_escape}] {message}")
     sys.exit(-1)
+
+# matrix transform utils
+# again everything is sourced from https://songho.ca/index.html
+
+import numpy as np
+import math
+
+def mat4_translate(offset: tuple[float, float, float]) -> np.ndarray:
+    return np.array([
+        [1, 0, 0, offset[0]],
+        [0, 1, 0, offset[1]],
+        [0, 0, 1, offset[2]],
+        [0, 0, 0, 1],
+    ], dtype=np.float32)
+
+def mat4_rotate(angle: float, axis: tuple[float, float, float]) -> np.ndarray:
+    x = axis[0]
+    y = axis[1]
+    z = axis[2]
+
+    s = math.sin(angle)
+    c = math.cos(angle)
+    nc = 1 - c
+
+    return np.array([
+        [nc * (x ** 2) + c, nc * x * y - s * z, nc * x * z + s * y, 0],
+        [nc * x * y + s * z, nc * (y ** 2) + c, nc * y * z - s * x, 0],
+        [nc * x * z - s * y, nc * y * z + s * x, nc * (z ** 2) + c, 0],
+        [0, 0, 0, 1]
+    ], dtype=np.float32)

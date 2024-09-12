@@ -95,7 +95,7 @@ def editor_new_map():
     GameState.active_scene = RenderScene()
     GameState.entity_storage.reset()
 
-    pipeline = res.ShaderPipeline("cue/editor/test_trig.vert", "cue/editor/menu.frag")
+    pipeline = res.ShaderPipeline("cue/editor/test_trig.vert", "cue/editor/test_col.frag")
     mesh = res.GPUMesh(EditorState.renderer.model_vao)
     mesh.write_to(np.array([0, 1, 0, 1, 1, 0, 1, 0, 0], dtype=np.dtypes.Float32DType), 3)
 
@@ -208,6 +208,9 @@ def start_editor():
     GameState.entity_storage = EntityStorage()
     editor_new_map()
 
+    x = 0
+    a = 0
+
     try:
         while True:
             # == event poll ==
@@ -231,6 +234,18 @@ def start_editor():
 
             EditorState.ui_ctx.delta_time(dt)
 
+            k = pg.key.get_pressed()
+
+            if k[pg.K_a]:
+                x -= 1 * dt
+            if k[pg.K_d]:
+                x += 1 * dt
+
+            if k[pg.K_q]:
+                a -= 1 * dt
+            if k[pg.K_e]:
+                a += 1 * dt
+
             # == frame ==
 
             EditorState.ui_ctx.set_as_current_context()
@@ -238,7 +253,7 @@ def start_editor():
 
             editor_process_ui()
 
-            EditorState.pov_camera.set_view(pm.Vector3(math.sin(t), 0., 0.), pm.Vector3(0., 0., 1.))
+            EditorState.pov_camera.set_view(pm.Vector3(x, 0., 0.), pm.Vector3(0., a, 0.))
             EditorState.renderer.frame(EditorState.pov_camera, GameState.active_scene)
 
     except Exception: # all-catch crash handler, just try to backup unsaved data before crashing
