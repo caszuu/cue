@@ -1,21 +1,17 @@
 import OpenGL.GL as gl
 from .cue_resources import GPUMesh, ShaderPipeline
 
-class CueEntity:
-    pass
-
 # == cue rendering instances ==
 
 # rendering batch contain semi-local runtime buffers
 # for each object being instanced (mesh, point, etc.)
 
 class MeshBatch:
-    __slots__ = ["mesh", "pipeline", "is_opaque", "entity", "draw_state", "has_elements", "draw_count"]
+    __slots__ = ["mesh", "pipeline", "is_opaque", "draw_state", "has_elements", "draw_count"]
 
     # TODO: add instancing
 
-    def __init__(self, entity: CueEntity, mesh: GPUMesh, pipeline: ShaderPipeline, is_opaque: bool = True) -> None:
-        self.entity = entity
+    def __init__(self, mesh: GPUMesh, pipeline: ShaderPipeline, is_opaque: bool = True) -> None:
         self.mesh = mesh
         self.pipeline = pipeline
         self.draw_state = (mesh.mesh_vao, pipeline)
@@ -34,8 +30,6 @@ class MeshBatch:
 
     mesh: GPUMesh
     pipeline: ShaderPipeline
-
-    entity: CueEntity
 
     # required by RenderScene for sorting
     draw_state: tuple[gl.GLuint, ShaderPipeline]

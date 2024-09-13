@@ -6,6 +6,7 @@ import numpy as np
 import imgui
 
 from ..cue_state import GameState
+from ..cue_sequence import CueSequencer
 from ..cue_entity_storage import EntityStorage
 
 from ..rendering.cue_renderer import CueRenderer
@@ -18,6 +19,7 @@ from ..rendering import cue_resources as res
 from ..rendering import cue_batch as bat
 
 from .. import cue_map as map
+from .. import cue_sequence as seq
 
 # == On-Cue Editor ==
 
@@ -26,10 +28,6 @@ class EditorState:
     # viewport state
         
     ui_ctx: CueImguiContext
-    renderer: CueRenderer
-
-    pov_camera: Camera
-    temp_scene: RenderScene
 
     # ui state
 
@@ -91,15 +89,15 @@ def editor_new_map():
     
     reset_editor_ui()
     
-    EditorState.pov_camera = Camera(EditorState.renderer.win_aspect)
+    GameState.active_camera = Camera(GameState.renderer.win_aspect)
     GameState.active_scene = RenderScene()
     GameState.entity_storage.reset()
 
     pipeline = res.ShaderPipeline("cue/editor/test_trig.vert", "cue/editor/test_col.frag")
-    mesh = res.GPUMesh(EditorState.renderer.model_vao)
+    mesh = res.GPUMesh(GameState.renderer.model_vao)
     mesh.write_to(np.array([0, 1, 0, 1, 1, 0, 1, 0, 0], dtype=np.dtypes.Float32DType), 3)
 
-    mesh_ins = bat.MeshBatch(None, res.GPUMesh(EditorState.renderer.model_vao), pipeline)
+    mesh_ins = bat.MeshBatch(res.GPUMesh(GameState.renderer.model_vao), pipeline)
     mesh_ins.draw_count = 3
 
     GameState.active_scene.append(mesh_ins)
@@ -194,22 +192,45 @@ def editor_process_ui():
 
 import math
 
+ev_id = 0
+
+def count_down(i):
+    print(f"exp in: {i}")
+
+    if i == 0:
+        seq.on_event(ev_id, count_down, 10)
+        # seq.on_event(ev_id, count_down, 5)
+
+        seq.fire_event(ev_id)
+    else:
+        seq.after(1, count_down, i - 1)
+
 def start_editor():
     print(f"\n[{utils.bold_escape}info{utils.reset_escape}] [bootstrap] starting the On-Cue Editor")
 
-    # init window
+    # init engine
 
-    EditorState.renderer = CueRenderer((1280, 720), vsync=True)
+    t = time.perf_counter()
+    GameState.sequencer = CueSequencer(t)
+    GameState.entity_storage = EntityStorage()
+
+    GameState.renderer = CueRenderer((1280, 720), vsync=True)
     pg.display.set_caption("On-Cue Editor")
 
-    EditorState.ui_ctx = EditorState.renderer.fullscreen_imgui_ctx
-    t = time.perf_counter()
+    # init editor
 
-    GameState.entity_storage = EntityStorage()
+    EditorState.ui_ctx = GameState.renderer.fullscreen_imgui_ctx
+
     editor_new_map()
 
     x = 0
     a = 0
+
+    global ev_id
+    ev_id = seq.create_event("EVERYTHING")
+ 
+    seq.on_event(ev_id, count_down, 5)
+    seq.fire_event(ev_id)
 
     try:
         while True:
@@ -246,6 +267,8 @@ def start_editor():
             if k[pg.K_e]:
                 a += 1 * dt
 
+            GameState.sequencer.tick(t)
+
             # == frame ==
 
             EditorState.ui_ctx.set_as_current_context()
@@ -253,8 +276,8 @@ def start_editor():
 
             editor_process_ui()
 
-            EditorState.pov_camera.set_view(pm.Vector3(x, 0., 0.), pm.Vector3(0., a, 0.))
-            EditorState.renderer.frame(EditorState.pov_camera, GameState.active_scene)
+            GameState.active_camera.set_view(pm.Vector3(x, 0., 0.), pm.Vector3(0., a, 0.))
+            GameState.renderer.frame(GameState.active_camera, GameState.active_scene)
 
     except Exception: # all-catch crash handler, just try to backup unsaved data before crashing
         exception_backup_save()
