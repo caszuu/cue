@@ -7,8 +7,6 @@ import math
 
 from ..im2d.imgui_integ import CueImguiContext
 from .. import cue_utils as utils
-from .cue_resources import ShaderPipeline
-from .cue_batch import MeshBatch
 
 # note: non-cycle-causing import only for type hints
 from . import cue_scene as sc
@@ -37,16 +35,16 @@ class Camera:
     # == projection / view matrix api ==
     # all matrix formulas taken from: https://songho.ca/opengl/gl_projectionmatrix.html
 
-    def set_perspective(self, aspect_ratio: float, fov: float = 90, near_plane: float = .1, far_plane: float = 100) -> None:
-        self.cam_fov = fov
+    def set_perspective(self, aspect_ratio: float, fov_y: float = 90, near_plane: float = .1, far_plane: float = 100) -> None:
+        self.cam_fov = fov_y
         self.cam_near_plane = near_plane
         self.cam_far_plane = far_plane
 
         # projection matrix
 
-        fov_tan = math.tan(math.radians(fov / 2))
-        right = near_plane * fov_tan
-        top = right / aspect_ratio
+        fov_tan = math.tan(math.radians(fov_y / 2))
+        top = near_plane * fov_tan
+        right = top * aspect_ratio
 
         self.cam_proj_mat = np.array([
             [near_plane / right, 0, 0, 0],
@@ -67,6 +65,13 @@ class Camera:
             [0, 0, 2 / z_div, (far_plane + near_plane) / z_div],
             [0, 0, 0, 1]
         ], dtype=np.float32)
+
+    # change the aspect without changing any other settings
+    def re_aspect(self, aspect: float) -> None:
+        if self.cam_fov is None:
+            return # orthographic doesn't rely on aspect ratio (maybe a TODO?)
+
+        self.set_perspective(aspect, self.cam_fov, self.cam_near_plane, self.cam_far_plane)
 
     def set_view(self, pos: pm.Vector3, rot: pm.Vector3) -> None:
         self.cam_view_proj_matrix = (
@@ -114,13 +119,13 @@ class Camera:
 
     # note: do *not* modify these directly, use set_view() to change camera pos and dir
     cam_pos: pm.Vector3
-    cam_rot: np.ndarray
+    cam_rot: pm.Vector3
 
     # camera state
     cam_proj_mat: np.ndarray
     cam_proj_view_matrix: np.ndarray
 
-    cam_ubo: gl.GLuint
+    cam_ubo: np.uint32
 
     # the imgui context that will be rendered with this camera
     # note: this context is rendered *before* the post-processing stack, for game ui

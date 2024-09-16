@@ -2,6 +2,7 @@ import pygame as pg
 import OpenGL.GL as gl
 
 import imgui
+import numpy as np
 
 from .cue_camera import Camera
 from ..im2d.imgui_integ import CueImguiContext
@@ -82,13 +83,17 @@ class CueRenderer:
 
         pg.display.flip()
 
+    def on_resize(self, res: tuple[int, int]) -> None:
+        self.win_res = res
+        self.win_aspect = res[0] / res[1]
+
     # OpenGL mode pygame surface (unused)
     win_surf: pg.Surface
     win_res: tuple[int, int]
     win_aspect: float
 
-    model_vao: gl.GLuint
-    particle_vao: gl.GLuint
+    model_vao: np.uint32
+    particle_vao: np.uint32
 
     fullscreen_imgui_ctx: CueImguiContext
     post_passes: list[PostPass]

@@ -99,7 +99,7 @@ def editor_new_map():
     
     reset_editor_ui()
     
-    GameState.active_camera = Camera(GameState.renderer.win_aspect)
+    GameState.active_camera = Camera(GameState.renderer.win_aspect, 70)
     GameState.active_scene = RenderScene()
     GameState.entity_storage.reset()
     GameState.sequencer = CueSequencer(time.perf_counter()) # to del all scheduled seqs
@@ -296,6 +296,8 @@ def start_editor():
 
                 elif e.type == pg.VIDEORESIZE:
                     EditorState.ui_ctx.resize_display(e.size)
+                    GameState.renderer.on_resize(e.size)
+                    GameState.active_camera.re_aspect(GameState.renderer.win_aspect)
 
                 elif e.type == pg.QUIT:
                     should_exit = True
