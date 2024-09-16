@@ -57,6 +57,23 @@ from .cue_entity_storage import EntityStorage
 
 MAP_LOADER_VERSION = 1
 
+def load_entity_data_params(en_data: dict) -> dict:
+    for param in en_data.values():
+        if not param is str:
+            continue # param types only apply to strings
+
+        # match type and convert
+
+        if starts_with(param, "str://"):
+            param = param[6:]
+        
+        elif starts_with(param, "asset://"):
+            param = AssetHandle(param[8:])
+
+        # elif starts_with(param, "entity://"):
+        #     param = 
+    
+
 # loads and parses a map file into EntityStorage and AssetManager, this function should be called within a "loading screen" context
 def load_map(file_path: str, en_storage: EntityStorage, asset_mgr) -> None:    
     # read the map file
@@ -82,23 +99,8 @@ def load_map(file_path: str, en_storage: EntityStorage, asset_mgr) -> None:
         starts_with = str.startswith
 
         for e in map_file["cmf_data"]["map_entities"]:
-            en_data = e["en_data"]
-
             # process string param types
-            for param in en_data.values():
-                if not param is str:
-                    continue # param types only apply to strings
-
-                # match type and convert
-
-                if starts_with(param, "str://"):
-                    param = param[6:]
-                
-                elif starts_with(param, "asset://"):
-                    param = AssetHandle(param[8:])
-
-                # elif starts_with(param, "entity://"):
-                #     param = 
+            en_data = load_entity_data_params(e["en_data"])
             
             en_storage.spawn(e["en_type"], e["en_name"], en_data)
 
@@ -109,17 +111,16 @@ def load_map(file_path: str, en_storage: EntityStorage, asset_mgr) -> None:
 
 # saves a map file to disk from an `entity_export`, this function is really only used in the on-cue editor for map compilation
 # *warn*: this func will not hesitate to override existing files!
-def compile_map(file_path: str, entity_export: tuple[str, str, dict]):
+def compile_map(file_path: str, entity_export: dict[str, tuple[str, dict]]):
     # collect all metadata for the `cmf_header`
 
     header_type_list = set()
     header_asset_list = set()
 
-    for e in entity_export:
+    for e in entity_export.values():
         header_type_list.add(e[0])
 
-
-        for param in e[2].values():
+        for param in e[1].values():
             if param is AssetHandle:
                 header_asset_list.add(param.to_str())
 
@@ -127,8 +128,8 @@ def compile_map(file_path: str, entity_export: tuple[str, str, dict]):
 
     entities = []
 
-    for e in entity_export:
-        params = copy.deepcopy(e[2]) # deepcopy to avoid modifying the source `entity_export`
+    for name, e in entity_export.items():
+        params = copy.deepcopy(e[1]) # deepcopy to avoid modifying the source `entity_export`
         
         # process param type prefixes for string-like types
         for param in params.values():
@@ -138,7 +139,7 @@ def compile_map(file_path: str, entity_export: tuple[str, str, dict]):
             elif param is AssetHandle:
                 param = "asset://" + param.to_str()
 
-        entities.append((e[0], e[1], params))
+        entities.append((name, e[0], params))
 
     # dump the final json
 

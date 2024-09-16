@@ -1,13 +1,16 @@
-import os, sys, time, pickle
+import os, sys, time, pickle, json
 from typing import Callable
 
 import pygame as pg, pygame.math as pm
 import numpy as np
 import imgui
 
+import filedialpy
+
 from ..cue_state import GameState
 from ..cue_sequence import CueSequencer
 from ..cue_entity_storage import EntityStorage
+from ..entities.cue_entity_types import EntityTypeRegistry
 
 from ..rendering.cue_renderer import CueRenderer
 from ..rendering.cue_camera import Camera
@@ -40,6 +43,9 @@ class EditorState:
     map_file_path: str | None = None
     has_unsaved_changes: bool = False
 
+    # stores the maps entity datas; dict[en_name, tuple[en_data, tuple[en_type, en_data]]]
+    entity_data_storage: dict[str, tuple[str, dict]]
+
 def reset_editor_ui():
     EditorState.is_settings_win_open = False
     EditorState.on_ensure_saved_success = None
@@ -70,6 +76,9 @@ def exception_backup_save() -> None:
     with open(path, 'wb') as f:
         pickle.dump(dump_data, f)
 
+def editor_error(msg: str) -> None:
+    utils.error(msg)
+
 def ensure_map_saved(on_success: Callable[[], None]) -> bool:
     if EditorState.has_unsaved_changes == False:
         on_success()
@@ -84,16 +93,16 @@ from ..components.cue_transform import Transform
 
 # init a default map to act as a background or as a new map
 def editor_new_map():
-    utils.info("Creating a new map..")
-
     EditorState.map_file_path = None
     EditorState.has_unsaved_changes = False
+    EditorState.entity_data_storage = {}
     
     reset_editor_ui()
     
     GameState.active_camera = Camera(GameState.renderer.win_aspect)
     GameState.active_scene = RenderScene()
     GameState.entity_storage.reset()
+    GameState.sequencer = CueSequencer(time.perf_counter()) # to del all scheduled seqs
 
     pipeline = res.ShaderPipeline("cue/editor/test_trig.vert", "cue/editor/test_col.frag", "test_screenspace")
     mesh = res.GPUMesh(GameState.renderer.model_vao)
@@ -108,7 +117,12 @@ def editor_new_map():
 
 def editor_save_map(path: str | None) -> None:
     if path == None:
-        raise NotImplementedError() # TODO: file dialog
+        path = filedialpy.saveFile(title="Save map file", filter=["*.json"])
+        
+        if not path: # cancel
+            return
+
+        EditorState.map_file_path = path
     
     utils.info(f"[editor] Compiling map file {path}..")
 
@@ -124,7 +138,39 @@ def editor_save_map(path: str | None) -> None:
     # compile map file
 
     map.compile_map(path, entity_export_buf)
-    
+
+    EditorState.has_unsaved_changes = False
+
+def editor_load_map() -> None:
+    path = filedialpy.openFile(title="Open map file", filter=["*.json"])
+
+    if not path: # cancel
+        return
+
+    utils.info(f"[editor] Loading map file {path}..")
+
+    # clear the map data
+    editor_new_map()
+
+    # load up the map file
+
+    with open(path, 'r') as f:
+        map_file = json.load(f)
+
+    if map_file["cmf_ver"] != map.MAP_LOADER_VERSION:
+        editor_error(f"The map file is saved with an unknown cmf format version! (cmf_ver: {map_file['cmf_ver']})")
+        return
+
+    for et in map_file["cmf_header"]["type_list"]:
+        if not et in EntityTypeRegistry.entity_types:
+            editor_error(f"The entity type \"{et}\" not found in the current app!")
+            return
+
+    # note: ignoring the compiled cmf_asset_files
+
+    for map_en in map_file["cmf_data"]["map_entities"]:
+        EditorState.entity_data_storage[map_en[0]] = (map_en[1], map.load_entity_data_params(map_en[2]))
+
 # this is the `main` editor func where we dispatch work based on user's input
 def editor_process_ui():
     EditorState.ui_ctx.set_as_current_context()
@@ -240,6 +286,8 @@ def start_editor():
         while True:
             # == event poll ==
 
+            should_exit = False
+
             for e in pg.event.get():
                 EditorState.ui_ctx.process_key_event(e)
 
@@ -250,7 +298,7 @@ def start_editor():
                     EditorState.ui_ctx.resize_display(e.size)
 
                 elif e.type == pg.QUIT:
-                    sys.exit(0)
+                    should_exit = True
 
             # == tick ==
 
@@ -277,6 +325,9 @@ def start_editor():
 
             EditorState.ui_ctx.set_as_current_context()
             imgui.new_frame()
+
+            if should_exit:
+                ensure_map_saved(lambda: sys.exit(0))
 
             editor_process_ui()
 
