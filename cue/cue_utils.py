@@ -32,10 +32,22 @@ import numpy as np
 import math
 
 def mat4_translate(offset: tuple[float, float, float]) -> np.ndarray:
+    x, y, z = offset
+    
     return np.array([
-        [1, 0, 0, offset[0]],
-        [0, 1, 0, offset[1]],
-        [0, 0, 1, offset[2]],
+        [1, 0, 0, x],
+        [0, 1, 0, y],
+        [0, 0, 1, z],
+        [0, 0, 0, 1],
+    ], dtype=np.float32)
+
+def mat4_scale(scale: tuple[float, float, float]) -> np.ndarray:
+    x, y, z = scale
+    
+    return np.array([
+        [x, 0, 0, 0],
+        [0, y, 0, 0],
+        [0, 0, z, 0],
         [0, 0, 0, 1],
     ], dtype=np.float32)
 
@@ -52,5 +64,5 @@ def mat4_rotate(angle: float, axis: tuple[float, float, float]) -> np.ndarray:
         [nc * (x ** 2) + c, nc * x * y - s * z, nc * x * z + s * y, 0],
         [nc * x * y + s * z, nc * (y ** 2) + c, nc * y * z - s * x, 0],
         [nc * x * z - s * y, nc * y * z + s * x, nc * (z ** 2) + c, 0],
-        [0, 0, 0, 1]
+        [0, 0, 0, 1],
     ], dtype=np.float32)

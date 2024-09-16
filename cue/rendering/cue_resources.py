@@ -11,7 +11,7 @@ from .. import cue_utils as utils
 class GPUMesh:
     __slots__ = ["mesh_vao", "mesh_ebo", "mesh_vbo", "vertex_count", "element_count"]
 
-    def __init__(self, vao: gl.GLuint) -> None:
+    def __init__(self, vao: np.uint32) -> None:
         # if not os.path.exists(path):
         #     utils.abort(f"Can't find a mesh resource in {path}")
 
@@ -90,9 +90,9 @@ class GPUMesh:
             gl.glBufferData(gl.GL_ELEMENT_ARRAY_BUFFER, ebo_data, gl.GL_STATIC_DRAW)
             self.element_count = element_count
 
-    mesh_vbo: gl.GLuint
-    mesh_ebo: gl.GLuint
-    mesh_vao: gl.GLuint
+    mesh_vbo: np.uint32
+    mesh_ebo: np.uint32
+    mesh_vao: np.uint32
 
     vertex_count: int
     element_count: int
@@ -100,7 +100,7 @@ class GPUMesh:
 class GPUTexture:
     __slots__ = ["texture_handle", "texture_format", "texture_size"]
 
-    def __init__(self, mag_filter: gl.GLuint = gl.GL_LINEAR, min_filter: gl.GLuint = gl.GL_LINEAR, wrap: gl.GLuint = gl.GL_CLAMP_TO_EDGE) -> None:
+    def __init__(self, mag_filter: np.uint32 = gl.GL_LINEAR, min_filter: np.uint32 = gl.GL_LINEAR, wrap: np.uint32 = gl.GL_CLAMP_TO_EDGE) -> None:
         self.texture_handle = gl.glGenTextures(1)
 
         gl.glBindTexture(gl.GL_TEXTURE_2D, self.texture_handle)
@@ -119,7 +119,7 @@ class GPUTexture:
 
     # mutator funcs; note: binds to current active texture and leaves it bound
 
-    def write_to(self, surf: pg.Surface, gl_format: gl.GLenum = gl.GL_RGBA, gl_type: gl.GLenum = gl.GL_UNSIGNED_BYTE, pg_format: str = "RGBA") -> None:
+    def write_to(self, surf: pg.Surface, gl_format: np.uint32 = gl.GL_RGBA, gl_type: np.uint32 = gl.GL_UNSIGNED_BYTE, pg_format: str = "RGBA") -> None:
         gl.glBindTexture(gl.GL_TEXTURE_2D, self.texture_handle)
         
         gl.glTexImage2D(gl.GL_TEXTURE_2D, 0, gl_format, surf.get_width(), surf.get_height(), 0, gl_format, gl.GL_UNSIGNED_BYTE, pg.image.tobytes(surf, pg_format, flipped=True))
@@ -127,7 +127,7 @@ class GPUTexture:
         self.texture_format = gl_format
         self.texture_size = surf.get_size()
 
-    def init_null(self, size: tuple[int, int], gl_format: gl.GLenum, gl_type: gl.GLenum) -> None:
+    def init_null(self, size: tuple[int, int], gl_format: np.uint32, gl_type: np.uint32) -> None:
         gl.glBindTexture(gl.GL_TEXTURE_2D, self.texture_handle)
         
         gl.glTexImage2D(gl.GL_TEXTURE_2D, 0, gl_format, size[0], size[1], 0, gl_format, gl_type, None)
@@ -138,9 +138,9 @@ class GPUTexture:
     def read_back(self) -> pg.Surface:
         raise NotImplemented # would always be a performace hit, should not be generally required
 
-    texture_handle: gl.GLuint
+    texture_handle: np.uint32
 
-    texture_format: gl.GLuint
+    texture_format: np.uint32
     texture_size: tuple[int, int]
 
 class CueGLUniformBindings:
@@ -152,9 +152,9 @@ class CueGLUniformBindings:
 #
 # note: this is not related to OpenGL program pipelines, only normal OpenGL programs are used
 class ShaderPipeline:
-    __slots__ = ["shader_program", "uniform_binds"]
+    __slots__ = ["shader_program", "shader_name"]
 
-    def __init__(self, vs_path: str, fs_path: str) -> None:
+    def __init__(self, vs_path: str, fs_path: str, dbg_name: str) -> None:
         if not os.path.exists(vs_path):
             utils.abort(f"Can't find a vertex shader in {vs_path}")
         
@@ -195,6 +195,7 @@ class ShaderPipeline:
             utils.abort(f"error while linking a ShaderPipeline with {os.path.basename(vs_path)} and {os.path.basename(fs_path)}: {log}")
 
         self.shader_program = p
+        self.shader_name = dbg_name
     
         # setup uniform block bindings
 
@@ -209,4 +210,5 @@ class ShaderPipeline:
     def bind(self) -> None:
         gl.glUseProgram(self.shader_program)
 
-    shader_program: gl.GLuint
+    shader_program: np.uint32
+    shader_name: str

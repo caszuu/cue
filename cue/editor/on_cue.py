@@ -80,6 +80,8 @@ def ensure_map_saved(on_success: Callable[[], None]) -> bool:
 
     return True
 
+from ..components.cue_transform import Transform
+
 # init a default map to act as a background or as a new map
 def editor_new_map():
     utils.info("Creating a new map..")
@@ -93,11 +95,13 @@ def editor_new_map():
     GameState.active_scene = RenderScene()
     GameState.entity_storage.reset()
 
-    pipeline = res.ShaderPipeline("cue/editor/test_trig.vert", "cue/editor/test_col.frag")
+    pipeline = res.ShaderPipeline("cue/editor/test_trig.vert", "cue/editor/test_col.frag", "test_screenspace")
     mesh = res.GPUMesh(GameState.renderer.model_vao)
     mesh.write_to(np.array([0, 1, 0, 1, 1, 0, 1, 0, 0], dtype=np.dtypes.Float32DType), 3)
 
-    mesh_ins = bat.MeshBatch(res.GPUMesh(GameState.renderer.model_vao), pipeline)
+    trans = Transform(pm.Vector3(1, 0, 1), pm.Vector3(0, 0, 0), pm.Vector3(2, 2, 2))
+
+    mesh_ins = bat.DrawBatch(res.GPUMesh(GameState.renderer.model_vao), pipeline, trans)
     mesh_ins.draw_count = 3
 
     GameState.active_scene.append(mesh_ins)

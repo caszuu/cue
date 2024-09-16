@@ -1,7 +1,7 @@
 import OpenGL.GL as gl
 
 from .cue_resources import ShaderPipeline
-from .cue_batch import MeshBatch
+from .cue_batch import DrawBatch
 
 # note: non-cycle-causing import only for type hints
 from . import cue_target as tar
@@ -19,11 +19,8 @@ class RenderScene:
 
     # == batch api ==
 
-    def append(self, batch: MeshBatch) -> None:
-        if batch.is_opaque:
-            attached_batches = self.attached_opaque_batches
-        else:
-            attached_batches = self.attached_non_opaque_batches
+    def append(self, batch: DrawBatch) -> None:
+        attached_batches = self.attached_opaque_batches
 
         scene_batch_buf = attached_batches.get(batch.draw_state, None)
 
@@ -36,7 +33,7 @@ class RenderScene:
         #       if two batches are hash equivalent, the override should also be equivalent
         scene_batch_buf[batch] = None
 
-    def remove(self, batch: MeshBatch) -> None:
+    def remove(self, batch: DrawBatch) -> None:
         if batch.is_opaque:
             attached_batches = self.attached_opaque_batches
         else:
@@ -52,7 +49,7 @@ class RenderScene:
             target.try_view_frame()
 
     def frame(self) -> None:
-        draw = MeshBatch.draw
+        draw = DrawBatch.draw
         pipe_bind = ShaderPipeline.bind
         vao_bind = gl.glBindVertexArray
 
@@ -87,7 +84,7 @@ class RenderScene:
             gl.GLuint,      # draw_vao
             ShaderPipeline, # draw_pipeline
         ],
-        dict[MeshBatch] # key only
+        dict[DrawBatch] # key only
     ]
 
     attached_non_opaque_batches: dict[
@@ -95,7 +92,7 @@ class RenderScene:
             gl.GLuint,      # draw_vao
             ShaderPipeline, # draw_pipeline
         ],
-        dict[MeshBatch] # key only
+        dict[DrawBatch] # key only
     ]
 
     attached_render_targets: dict['tar.RenderTarget', int] # key: render target, value: ref count
