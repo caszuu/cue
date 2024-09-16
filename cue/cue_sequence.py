@@ -1,4 +1,4 @@
-from typing import Callable
+from typing import Callable, Any
 from bisect import bisect_left, bisect_right
 
 # == Cue Sequences and Sequencer ==
@@ -55,7 +55,7 @@ class CueSequencer:
         except KeyError: raise KeyError(f"invalid event_id {event_id}!")
 
     # immidiatelly fire an event and all it's scheduled sequences (aka only returns after all sequences are done)
-    def fire_event(self, event_id: int) -> None:
+    def fire_event(self, event_id: int, event_data: Any = None) -> None:
         # freeze the event seq list
 
         try: ev = self.active_events[event_id]
@@ -66,8 +66,12 @@ class CueSequencer:
 
         # fire sequences (inline)
 
-        for s, a in seq_list:
-            s(*a)
+        if event_data is None:
+            for s, a in seq_list:
+                s(*a)
+        else:
+            for s, a in seq_list:
+                s(*a, event_data)
 
     # == game loop api ==
 
@@ -121,5 +125,5 @@ def create_event(debug_name: str) -> int:
 def on_event(event_id: int, seq_func: Callable, *args) -> None:
     gs.GameState.sequencer.on_event(event_id, seq_func, *args)
 
-def fire_event(event_id: int) -> None:
-    gs.GameState.sequencer.fire_event(event_id)
+def fire_event(event_id: int, event_data: Any = None) -> None:
+    gs.GameState.sequencer.fire_event(event_id, event_data)
