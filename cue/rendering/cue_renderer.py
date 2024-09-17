@@ -26,7 +26,7 @@ class PostPass:
 # TODO: double-buffering (both CueRenderer and RenderTargets)
 
 class CueRenderer:
-    __slots__ = ["win_surf", "win_res", "win_aspect", "model_vao", "post_passes", "fullscreen_imgui_ctx"]
+    __slots__ = ["win_surf", "win_res", "win_aspect", "model_vao", "post_passes", "fullscreen_imgui_ctx", "cpu_frame_time"]
 
     def __init__(self, res: tuple[int, int] = (0, 0), fullscreen: bool = False, vsync: bool = True) -> None:
         pg.init()
@@ -47,6 +47,7 @@ class CueRenderer:
         self.fullscreen_imgui_ctx = CueImguiContext(self.win_res)
 
         self.post_passes = []
+        self.cpu_frame_time = 0.
 
         self._setup_vao()
 
@@ -69,6 +70,7 @@ class CueRenderer:
     def frame(self, cam: Camera, scene) -> None:
         # cam stack draw
 
+        t = time.perf_counter()
         cam.view_frame(0, scene)
 
         # post-process
@@ -80,6 +82,9 @@ class CueRenderer:
 
         imgui.render()
         self.fullscreen_imgui_ctx.render(imgui.get_draw_data())
+
+        # note: do not include flip() as that waits for the gpu
+        self.cpu_frame_time = time.perf_counter() - t
 
         pg.display.flip()
 
@@ -97,3 +102,5 @@ class CueRenderer:
 
     fullscreen_imgui_ctx: CueImguiContext
     post_passes: list[PostPass]
+
+    cpu_frame_time: float

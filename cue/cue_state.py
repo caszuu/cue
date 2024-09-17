@@ -19,3 +19,10 @@ class GameState:
 
     active_scene: 'ren_sc.RenderScene'
     active_camera: 'ren_cam.Camera'
+
+    # == global vars ==
+
+    delta_time: float
+    
+    cpu_tick_time: float
+    cpu_render_time: float

@@ -24,6 +24,8 @@ from ..rendering import cue_batch as bat
 from .. import cue_map as map
 from .. import cue_sequence as seq
 
+from ..components.cue_freecam import FreecamController
+
 # == On-Cue Editor ==
 
 # editors global state
@@ -31,10 +33,14 @@ class EditorState:
     # viewport state
         
     ui_ctx: CueImguiContext
+    editor_freecam: FreecamController
+    
+    error_msg: str | None = None
 
     # ui state
 
     is_settings_win_open: bool = False
+    is_perf_overlay_open: bool = False
 
     on_ensure_saved_success: Callable[[], None] | None = None
 
@@ -79,6 +85,10 @@ def exception_backup_save() -> None:
 def editor_error(msg: str) -> None:
     utils.error(msg)
 
+    EditorState.error_msg = msg
+
+# == editor map defs ==
+
 def ensure_map_saved(on_success: Callable[[], None]) -> bool:
     if EditorState.has_unsaved_changes == False:
         on_success()
@@ -103,6 +113,8 @@ def editor_new_map():
     GameState.active_scene = RenderScene()
     GameState.entity_storage.reset()
     GameState.sequencer = CueSequencer(time.perf_counter()) # to del all scheduled seqs
+
+    EditorState.editor_freecam = FreecamController(GameState.active_camera)
 
     pipeline = res.ShaderPipeline("cue/editor/test_trig.vert", "cue/editor/test_col.frag", "test_screenspace")
     mesh = res.GPUMesh(GameState.renderer.model_vao)
@@ -131,7 +143,7 @@ def editor_save_map(path: str | None) -> None:
     entity_export_buf = {}
 
     for en_name, en in EditorState.entity_data_storage.items():
-        en_type = GameState.entity_storage[en_name][1]
+        en_type = GameState.entity_storage.entity_storage[en_name][1]
 
         entity_export_buf[en_name] = (en_name, en_type, en)
 
@@ -154,8 +166,15 @@ def editor_load_map() -> None:
 
     # load up the map file
 
-    with open(path, 'r') as f:
-        map_file = json.load(f)
+    try:
+        with open(path, 'r') as f:
+            map_file = json.load(f)
+    except json.JSONDecodeError as e:
+        editor_error("The file doesn't seem to be a map file or it's corrupted!")
+        return
+    except FileNotFoundError:
+        editor_error("The map file not found!")
+        return
 
     if map_file["cmf_ver"] != map.MAP_LOADER_VERSION:
         editor_error(f"The map file is saved with an unknown cmf format version! (cmf_ver: {map_file['cmf_ver']})")
@@ -170,6 +189,27 @@ def editor_load_map() -> None:
 
     for map_en in map_file["cmf_data"]["map_entities"]:
         EditorState.entity_data_storage[map_en[0]] = (map_en[1], map.load_entity_data_params(map_en[2]))
+
+# == ui defs ==
+
+def perf_overlay():
+    win_flags = imgui.WINDOW_NO_DECORATION | imgui.WINDOW_ALWAYS_AUTO_RESIZE | imgui.WINDOW_NO_SAVED_SETTINGS | imgui.WINDOW_NO_FOCUS_ON_APPEARING | imgui.WINDOW_NO_NAV | imgui.WINDOW_NO_MOVE
+    pad = 10
+
+    viewport = imgui.get_main_viewport()
+    imgui.set_next_window_position(viewport.work_pos.x + pad, viewport.work_pos.y + pad)
+    imgui.set_next_window_bg_alpha(.35)
+
+    with imgui.begin("Perf overlay", flags=win_flags):
+        imgui.text("Performace overlay")
+        imgui.separator()
+
+        imgui.text(f"Frame time: {round(GameState.delta_time * 1000, 2)}ms")
+
+        imgui.spacing(); imgui.spacing()
+
+        imgui.text(f"Tick time: {round(GameState.cpu_tick_time * 1000, 2)}ms")
+        imgui.text(f"Cpu Render Time: {round(GameState.cpu_render_time * 1000, 2)}ms")
 
 # this is the `main` editor func where we dispatch work based on user's input
 def editor_process_ui():
@@ -213,6 +253,8 @@ def editor_process_ui():
             if imgui.menu_item("Map tree")[0]:
                 pass
 
+            _, EditorState.is_perf_overlay_open = imgui.menu_item("Perf overlay", selected=EditorState.is_perf_overlay_open)
+
             imgui.end_menu()
         
         imgui.end_main_menu_bar()
@@ -220,6 +262,11 @@ def editor_process_ui():
     # workaround for imgui issue #331
     if unsaved_open:
         imgui.open_popup("Unsaved Changes")
+
+    # == editor overlays ==
+
+    if EditorState.is_perf_overlay_open:
+        perf_overlay()
 
     # == popup modals ==
 
@@ -239,21 +286,19 @@ def editor_process_ui():
             EditorState.on_ensure_saved_success = None
 
         imgui.end_popup()
+    
+    if not EditorState.error_msg is None:
+        imgui.open_popup("An Error")
 
-import math
+    if imgui.begin_popup_modal("An Error", None, imgui.WINDOW_ALWAYS_AUTO_RESIZE | imgui.WINDOW_NO_SAVED_SETTINGS)[0]:
+        imgui.text(EditorState.error_msg)
+        imgui.separator()
 
-ev_id = 0
+        if imgui.button("Ok"):
+            EditorState.error_msg = None
+            imgui.close_current_popup()
 
-def count_down(i):
-    print(f"exp in: {i}")
-
-    if i == 0:
-        seq.on_event(ev_id, count_down, 10)
-        # seq.on_event(ev_id, count_down, 5)
-
-        seq.fire_event(ev_id)
-    else:
-        seq.after(1, count_down, i - 1)
+        imgui.end_popup()
 
 def start_editor():
     print(f"\n[{utils.bold_escape}info{utils.reset_escape}] [bootstrap] starting the On-Cue Editor")
@@ -272,15 +317,6 @@ def start_editor():
     EditorState.ui_ctx = GameState.renderer.fullscreen_imgui_ctx
 
     editor_new_map()
-
-    x = 0
-    a = 0
-
-    global ev_id
-    ev_id = seq.create_event("EVERYTHING")
- 
-    seq.on_event(ev_id, count_down, 5)
-    seq.fire_event(ev_id)
 
     try:
         while True:
@@ -301,27 +337,20 @@ def start_editor():
 
                 elif e.type == pg.QUIT:
                     should_exit = True
+            
+            EditorState.editor_freecam.set_capture(pg.mouse.get_pressed()[2])
 
             # == tick ==
 
             dt = time.perf_counter() - t
             t = time.perf_counter()
 
+            GameState.delta_time = dt
             EditorState.ui_ctx.delta_time(dt)
-
-            k = pg.key.get_pressed()
-
-            if k[pg.K_a]:
-                x -= 1 * dt
-            if k[pg.K_d]:
-                x += 1 * dt
-
-            if k[pg.K_q]:
-                a -= 1 * dt
-            if k[pg.K_e]:
-                a += 1 * dt
-
+            
             GameState.sequencer.tick(t)
+
+            tt = time.perf_counter() - t
 
             # == frame ==
 
@@ -333,8 +362,10 @@ def start_editor():
 
             editor_process_ui()
 
-            GameState.active_camera.set_view(pm.Vector3(x, 0., 0.), pm.Vector3(0., a, 0.))
             GameState.renderer.frame(GameState.active_camera, GameState.active_scene)
+
+            GameState.cpu_tick_time = tt # delayed by a frame to match cpu_render_time
+            GameState.cpu_render_time = GameState.renderer.cpu_frame_time
 
     except Exception: # all-catch crash handler, just try to backup unsaved data before crashing
         exception_backup_save()
