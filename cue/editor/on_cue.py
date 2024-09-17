@@ -337,6 +337,8 @@ def start_editor():
 
                 elif e.type == pg.QUIT:
                     should_exit = True
+
+                GameState.sequencer.send_event_id(e.type, e)
             
             EditorState.editor_freecam.set_capture(pg.mouse.get_pressed()[2])
 

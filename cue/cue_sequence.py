@@ -1,6 +1,8 @@
 from typing import Callable, Any
 from bisect import bisect_left, bisect_right
 
+import pygame as pg
+
 # == Cue Sequences and Sequencer ==
 
 # Cue sequences are the primary way of scripting in Cue, they are essentially simplified coroutines or async
@@ -24,7 +26,7 @@ class CueSequencer:
         self.active_events = {}
 
         self.last_timestamp = t
-        self.next_event_id = 0
+        self.next_event_id = 65535 # start at the pygame event id limit (to prevent overlap)
 
     # == sequence api ==
 
@@ -51,6 +53,10 @@ class CueSequencer:
 
     # schedule a sequence function to fire with the supplied [event_id]
     def on_event(self, event_id: int, seq_func: Callable, *args) -> None:
+        if event_id < 65535 and not event_id in self.active_events:
+            # pygame event id, create event seq stack if doesn't exist
+            self.active_events[event_id] = ([], f"pygame_{pg.event.event_name(event_id)}")
+
         try: self.active_events[event_id][0].append((seq_func, args))
         except KeyError: raise KeyError(f"invalid event_id {event_id}!")
 
@@ -96,6 +102,25 @@ class CueSequencer:
 
         for s, a in timed_seqs:
             s(*a)
+    
+    def send_event_id(self, event_id: int, event_data: Any = None) -> None:
+        # freeze the event seq list
+
+        ev = self.active_events.get(event_id, None)
+        if ev is None:
+            return
+
+        seq_list = list(ev[0])
+        ev[0].clear()
+
+        # fire sequences (inline)
+
+        if event_data is None:
+            for s, a in seq_list:
+                s(*a)
+        else:
+            for s, a in seq_list:
+                s(*a, event_data)
 
     # sequences scheduled on the next frame; list[seq_func, seq_args]
     next_seqs: list[tuple[Callable, tuple]]
@@ -104,7 +129,7 @@ class CueSequencer:
     timed_ts: list[float]
     timed_seqs: list[tuple[Callable, tuple]]
 
-    active_events: dict[int, tuple[tuple[Callable, tuple], str]]
+    active_events: dict[int, tuple[list[tuple[Callable, tuple]], str]]
 
     last_timestamp: float
     next_event_id: int
