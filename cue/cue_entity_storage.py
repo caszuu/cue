@@ -15,7 +15,7 @@ class EntityStorage:
 
     # == entity api ==
 
-    def spawn(self, type_name: str, name: str, **kwargs) -> Any:
+    def spawn(self, type_name: str, name: str, *args, **kwargs) -> Any:
         try: en_type = EntityTypeRegistry.entity_types[type_name]
         except KeyError: raise KeyError(f"Entity type named \"{type_name}\" does not exist!")
 
@@ -24,7 +24,7 @@ class EntityStorage:
         if name in self.entity_storage:
             raise KeyError(f"Entity named \"{name}\" already exists, entities must have a unique name!")
 
-        en_handle = en_type.spawn_call(kwargs)
+        en_handle = en_type.spawn_call(*args, **kwargs)
         self.entity_storage[name] = (type_name, en_handle)
 
         return en_handle

@@ -116,7 +116,7 @@ def editor_new_map():
 
     EditorState.editor_freecam = FreecamController(GameState.active_camera)
 
-    pipeline = res.ShaderPipeline("cue/editor/test_trig.vert", "cue/editor/test_col.frag", "test_screenspace")
+    pipeline = res.ShaderPipeline(os.path.dirname(__file__) + "/test_trig.vert", os.path.dirname(__file__) + "/test_col.frag", "test_screenspace")
     mesh = res.GPUMesh(GameState.renderer.model_vao)
     mesh.write_to(np.array([0, 1, 0, 1, 1, 0, 1, 0, 0], dtype=np.dtypes.Float32DType), 3)
 
@@ -209,7 +209,7 @@ def perf_overlay():
         imgui.spacing(); imgui.spacing()
 
         imgui.text(f"Tick time: {round(GameState.cpu_tick_time * 1000, 2)}ms")
-        imgui.text(f"Cpu Render Time: {round(GameState.cpu_render_time * 1000, 2)}ms")
+        imgui.text(f"Cpu render time: {round(GameState.cpu_render_time * 1000, 2)}ms")
 
 # this is the `main` editor func where we dispatch work based on user's input
 def editor_process_ui():

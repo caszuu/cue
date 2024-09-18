@@ -2,6 +2,8 @@ import json
 import copy
 import os
 
+from .cue_state import GameState
+
 from .entities.cue_entity_types import EntityTypeRegistry
 from .cue_entity_storage import EntityStorage
 # from .cue_asset_manager import AssetManager
@@ -58,6 +60,8 @@ from .cue_entity_storage import EntityStorage
 MAP_LOADER_VERSION = 1
 
 def load_entity_data_params(en_data: dict) -> dict:
+    starts_with = str.startswith
+
     for param in en_data.values():
         if not param is str:
             continue # param types only apply to strings
@@ -72,37 +76,37 @@ def load_entity_data_params(en_data: dict) -> dict:
 
         # elif starts_with(param, "entity://"):
         #     param = 
-    
+
+    return en_data
 
 # loads and parses a map file into EntityStorage and AssetManager, this function should be called within a "loading screen" context
-def load_map(file_path: str, en_storage: EntityStorage, asset_mgr) -> None:    
+def load_map(file_path: str) -> None:    
     # read the map file
     
     with open(file_path, 'r') as f:
         map_file = json.load(f)
 
-    en_storage.reset()
+    GameState.entity_storage.reset()
 
     try:
         # validate map
 
         if not MAP_LOADER_VERSION == map_file["cmf_ver"]:
-            raise ValueError(f"Map file version is imcompatible with the current version of Cue! (map file: {map_file['cmf_ver']}; cue: {MAP_LOADER_VERSION})")    
+            raise ValueError(f"Map file version is imcompatible with the current version of Cue! (map file: {map_file['cmf_ver']}; supported: {MAP_LOADER_VERSION})")    
 
-        for t in map_file["cmf_header"]["entity_types"]:
+        for t in map_file["cmf_header"]["type_list"]:
             if not t in EntityTypeRegistry.entity_types:
                 raise ValueError(f"Map file contains Cue entity types not supprted by the current app! (missing \"{t}\")")
 
         # load map data into Cue subsystems
 
-        asset_mgr.preload(map_file["cmf_header"]["asset_list"])
-        starts_with = str.startswith
+        # GameState.asset_manager.preload(map_file["cmf_header"]["asset_list"])
 
         for e in map_file["cmf_data"]["map_entities"]:
             # process string param types
             en_data = load_entity_data_params(e["en_data"])
             
-            en_storage.spawn(e["en_type"], e["en_name"], en_data)
+            GameState.entity_storage.spawn(e["en_type"], e["en_name"], en_data)
 
     except KeyError:
         raise ValueError("corrupted map file, missing json fields")

@@ -20,6 +20,9 @@ import pygame as pg
 
 class CueSequencer:
     def __init__(self, t: float) -> None:
+        self.reset(t)
+
+    def reset(self, t: float) -> None:
         self.next_seqs = []
         self.timed_ts = []
         self.timed_seqs = []
