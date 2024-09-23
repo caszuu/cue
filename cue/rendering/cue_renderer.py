@@ -5,6 +5,8 @@ import imgui
 import numpy as np
 
 from .cue_camera import Camera
+from .cue_scene import RenderScene
+from .cue_gizmos import draw_gizmos, init_gizmos
 from ..im2d.imgui_integ import CueImguiContext
 
 import time
@@ -50,6 +52,7 @@ class CueRenderer:
         self.cpu_frame_time = 0.
 
         self._setup_vao()
+        init_gizmos()
 
     def _setup_vao(self):
         self.model_vao = gl.glGenVertexArrays(1)
@@ -67,11 +70,13 @@ class CueRenderer:
 
     # == renderer api ==
 
-    def frame(self, cam: Camera, scene) -> None:
+    def frame(self, cam: Camera, scene: RenderScene) -> None:
+        t = time.perf_counter()
+
         # cam stack draw
 
-        t = time.perf_counter()
         cam.view_frame(0, scene)
+        draw_gizmos() # draw debug gizmos
 
         # post-process
 
