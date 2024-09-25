@@ -43,8 +43,17 @@ class EditorState:
 
     is_settings_win_open: bool = False
     is_perf_overlay_open: bool = False
+    is_model_importer_open: bool = False
 
     on_ensure_saved_success: Callable[[], None] | None = None
+
+    # model import state
+
+    assimp_scene: Any | None = None
+    assimp_path: str | None = None
+
+    assimp_sel_mesh: int = 0
+    assimp_saved_msg: str | None = None
 
     # map state
 
@@ -191,6 +200,112 @@ def editor_load_map() -> None:
     for map_en in map_file["cmf_data"]["map_entities"]:
         EditorState.entity_data_storage[map_en[0]] = (map_en[1], map.load_entity_data_params(map_en[2]))
 
+# == editor asset importer ==
+
+import pyassimp as assimp
+
+def model_import_ui() -> None:
+    with imgui.begin("Model Importer", None):
+        if imgui.button("Import External Model"):
+            # import a model file using assimp
+
+            EditorState.assimp_path = filedialpy.openFile(title="Open a model file")
+            
+            if not EditorState.assimp_path:
+                return
+
+            try:
+                # try load the model scene
+                with assimp.load(EditorState.assimp_path, None, processing=assimp.postprocess.aiProcess_Triangulate) as scene:
+                    utils.info(f"[editor] Imported an external model file: {EditorState.assimp_path}")
+                    EditorState.assimp_scene = scene
+
+            except assimp.AssimpError as e:
+                utils.error(f"Failed to load a model file {EditorState.assimp_path}: {e}")
+                EditorState.assimp_scene = None
+            except ValueError as e:
+                utils.error(f"Failed to load a model file {EditorState.assimp_path}: {e}")
+                EditorState.assimp_scene = None
+            
+            except: # all-catch to prevent editor crash
+                utils.error(f"Failed to load a model file {EditorState.assimp_path}")
+                EditorState.assimp_scene = None
+
+            EditorState.assimp_saved_msg = None
+            
+        imgui.same_line()
+        imgui.text(f"Model File: {None if EditorState.assimp_path is None else os.path.basename(EditorState.assimp_path)}")
+        
+        imgui.separator()
+
+        with imgui.begin_tab_bar("Model Importer Tab Bar"):
+            if imgui.begin_tab_item("Mesh Data")[0]:
+                # mesh importer
+
+                if EditorState.assimp_scene is not None:
+                    reload_model, EditorState.assimp_sel_mesh = imgui.combo("selected mesh", EditorState.assimp_sel_mesh, [str(m) for m in EditorState.assimp_scene.meshes])
+                    imgui.spacing(); imgui.spacing()
+
+                    imgui.text(f"Mesh vertex count: {len(EditorState.assimp_scene.meshes[EditorState.assimp_sel_mesh].vertices)}")
+                    imgui.text(f"Mesh index count: {len(EditorState.assimp_scene.meshes[EditorState.assimp_sel_mesh].faces) * 3}")
+                else:
+                    reload_model, EditorState.assimp_sel_mesh = imgui.combo("selected mesh", 0, [])
+                    imgui.spacing(); imgui.spacing()
+
+                    imgui.text(f"Mesh vertex count: No mesh")
+                    imgui.text(f"Mesh index count: No mesh")
+
+                if reload_model:
+                    EditorState.assimp_saved_msg = None
+
+                imgui.spacing(); imgui.spacing()
+
+                if imgui.button("Save as a Cue Mesh") and not EditorState.assimp_path is None and not EditorState.assimp_scene is None:
+                    save_path = filedialpy.saveFile(os.path.splitext(os.path.basename(EditorState.assimp_path))[0])
+                    
+                    mesh = EditorState.assimp_scene.meshes[EditorState.assimp_sel_mesh]
+                    vert_count = len(mesh.vertices)
+                    face_count = len(mesh.faces)
+
+                    if not save_path:
+                        imgui.end_tab_item()
+                        return
+
+                    vert_buf = np.empty((3 * vert_count,), dtype=np.float32)
+                    norm_buf = np.empty((3 * vert_count,), dtype=np.float32)
+                    uv_buf = np.empty((2 * vert_count,), dtype=np.float32)
+
+                    elem_buf = np.empty((3 * face_count,), dtype=np.uint32)
+
+                    # fill vert_buf
+
+                    if not mesh.normals.any():
+                        raise ValueError("No mesh normal components!")
+
+                    if not mesh.texturecoords.any():
+                        raise ValueError("No UV components!")
+                    
+                    vert_buf[:] = mesh.vertices.flatten()
+                    norm_buf[:] = mesh.normals.flatten()
+                    
+                    for vi in range(vert_count):
+                        uv_buf[vi:vi + 2] = mesh.texturecoords[0][vi][:2] # only using the first uv coords array, assuming this is correct?
+
+                    # fill elem_buf
+                    elem_buf[:] = mesh.faces.flatten()
+
+                    # export to a game ready numpy archive
+                    np.savez(save_path, vert_data=vert_buf, norm_data=norm_buf, uv_data=uv_buf, elem_data=elem_buf)
+
+                    utils.info(f"[editor] Saved a new mesh file to {save_path}!")
+                    EditorState.assimp_saved_msg = f"Saved to {os.path.basename(save_path)}!"
+                
+                if EditorState.assimp_saved_msg is not None:
+                    imgui.same_line()
+                    imgui.text(EditorState.assimp_saved_msg)
+
+                imgui.end_tab_item()
+
 # == ui defs ==
 
 def perf_overlay():
@@ -255,6 +370,7 @@ def editor_process_ui():
                 pass
 
             _, EditorState.is_perf_overlay_open = imgui.menu_item("Perf overlay", selected=EditorState.is_perf_overlay_open)
+            _, EditorState.is_model_importer_open = imgui.menu_item("Model Importer", selected=EditorState.is_model_importer_open)
 
             imgui.end_menu()
         
@@ -264,7 +380,10 @@ def editor_process_ui():
     if unsaved_open:
         imgui.open_popup("Unsaved Changes")
 
-    # == editor overlays ==
+    # == editor windows and overlays ==
+
+    if EditorState.is_model_importer_open:
+        model_import_ui()
 
     if EditorState.is_perf_overlay_open:
         perf_overlay()
@@ -367,9 +486,9 @@ def start_editor():
             editor_process_ui()
 
             # cute world origin indicator
-            gizmo.draw_line(pm.Vector3(0, 0, 0), pm.Vector3(.2, 0, 0), pm.Vector3(1, 0, 0), pm.Vector3(1, 0, 0))
-            gizmo.draw_line(pm.Vector3(0, 0, 0), pm.Vector3(0, .2, 0), pm.Vector3(0, 1, 0), pm.Vector3(0, 1, 0))
-            gizmo.draw_line(pm.Vector3(0, 0, 0), pm.Vector3(0, 0, .2), pm.Vector3(0, 0, 1), pm.Vector3(0, 0, 1))
+            gizmo.draw_line(pm.Vector3(0, 0, 0), pm.Vector3(.2, 0, 0), pm.Vector3(.35, .05, .05), pm.Vector3(1, 0, 0))
+            gizmo.draw_line(pm.Vector3(0, 0, 0), pm.Vector3(0, .2, 0), pm.Vector3(.05, .35, .05), pm.Vector3(0, 1, 0))
+            gizmo.draw_line(pm.Vector3(0, 0, 0), pm.Vector3(0, 0, .2), pm.Vector3(.05, .05, .35), pm.Vector3(0, 0, 1))
 
             GameState.renderer.frame(GameState.active_camera, GameState.active_scene)
 

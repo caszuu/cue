@@ -34,7 +34,7 @@ class EntityStorage:
         except KeyError: raise KeyError(f"Entity named \"{name}\" does not exist!")
 
         # despawn entity
-       
+
         en_despawn = EntityTypeRegistry.despawn_types[en[0]]
         en_despawn(en)
 

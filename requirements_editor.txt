@@ -1,2 +1,5 @@
 # these are extra deps required only for the on-cue editor
 filedialpy
+
+pyassimp
+setuptools # required by pyassimp since python 3.12
