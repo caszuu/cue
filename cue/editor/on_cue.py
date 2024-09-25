@@ -1,5 +1,5 @@
 import os, sys, time, pickle, json
-from typing import Callable
+from typing import Callable, Any
 
 import pygame as pg, pygame.math as pm
 import numpy as np
@@ -20,6 +20,7 @@ from ..im2d.imgui_integ import CueImguiContext
 from .. import cue_utils as utils
 from ..rendering import cue_resources as res
 from ..rendering import cue_batch as bat
+from ..rendering import cue_gizmos as gizmo
 
 from .. import cue_map as map
 from .. import cue_sequence as seq
@@ -363,6 +364,11 @@ def start_editor():
                 ensure_map_saved(lambda: sys.exit(0))
 
             editor_process_ui()
+
+            # cute world origin indicator
+            gizmo.draw_line(pm.Vector3(0, 0, 0), pm.Vector3(.2, 0, 0), pm.Vector3(1, 0, 0), pm.Vector3(1, 0, 0))
+            gizmo.draw_line(pm.Vector3(0, 0, 0), pm.Vector3(0, .2, 0), pm.Vector3(0, 1, 0), pm.Vector3(0, 1, 0))
+            gizmo.draw_line(pm.Vector3(0, 0, 0), pm.Vector3(0, 0, .2), pm.Vector3(0, 0, 1), pm.Vector3(0, 0, 1))
 
             GameState.renderer.frame(GameState.active_camera, GameState.active_scene)
 
