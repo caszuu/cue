@@ -8,6 +8,7 @@ import imgui
 import filedialpy
 
 from ..cue_state import GameState
+from ..cue_assets import AssetManager
 from ..cue_sequence import CueSequencer
 from ..cue_entity_storage import EntityStorage
 from ..entities.cue_entity_types import EntityTypeRegistry
@@ -117,13 +118,12 @@ def editor_new_map():
 
     EditorState.editor_freecam = FreecamController(GameState.active_camera)
 
-    pipeline = res.ShaderPipeline(os.path.dirname(__file__) + "/test_trig.vert", os.path.dirname(__file__) + "/test_col.frag", "test_screenspace")
-    mesh = res.GPUMesh(GameState.renderer.model_vao)
-    mesh.write_to(np.array([0, 1, 0, 1, 1, 0, 1, 0, 0], dtype=np.dtypes.Float32DType), 3)
+    pipeline = res.ShaderPipeline(open(os.path.dirname(__file__) + "/test_trig.vert", 'r').read(), open(os.path.dirname(__file__) + "/test_col.frag", 'r').read(), "test_screenspace")
+    mesh = res.GPUMesh()
 
     trans = Transform(pm.Vector3(1, 0, 1), pm.Vector3(0, 0, 0), pm.Vector3(2, 2, 2))
 
-    mesh_ins = bat.DrawBatch(res.GPUMesh(GameState.renderer.model_vao), pipeline, trans)
+    mesh_ins = bat.DrawBatch(mesh, pipeline, trans)
     mesh_ins.draw_count = 3
 
     GameState.active_scene.append(mesh_ins)
@@ -309,6 +309,7 @@ def start_editor():
     t = time.perf_counter()
     GameState.sequencer = CueSequencer(t)
     GameState.entity_storage = EntityStorage()
+    GameState.asset_manager = AssetManager("assets/")
 
     GameState.renderer = CueRenderer((1280, 720), vsync=True)
     pg.display.set_caption("On-Cue Editor")

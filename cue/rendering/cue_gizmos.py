@@ -48,7 +48,7 @@ def init_gizmos() -> None:
     gl.glVertexAttribPointer(1, 3, gl.GL_FLOAT, False, 6 * 4, ctypes.c_void_p(3 * 4))
     gl.glEnableVertexAttribArray(1)
 
-    CueGizmos.draw_shader = ShaderPipeline(os.path.dirname(__file__) + "/gizmo_draw.vert", os.path.dirname(__file__) + "/gizmo_draw.frag", "gizmo_draw")
+    CueGizmos.draw_shader = ShaderPipeline(open(os.path.dirname(__file__) + "/gizmo_draw.vert", 'r').read(), open(os.path.dirname(__file__) + "/gizmo_draw.frag", 'r').read(), "gizmo_draw")
 
 def draw_gizmos() -> None:
     if not CueGizmos.draw_stack:

@@ -11,16 +11,16 @@ from .. import cue_utils as utils
 # for each object being instanced (mesh, point, etc.)
 
 class DrawBatch:
-    __slots__ = ["mesh", "model_mat_loc", "model_transform", "draw_state", "mesh_vbo", "mesh_ebo", "draw_count"]
+    __slots__ = ["mesh", "model_mat_loc", "model_transform", "draw_state", "mesh_vao", "has_elements", "draw_count"]
 
     # TODO: add instancing
 
     def __init__(self, mesh: GPUMesh, pipeline: ShaderPipeline, trans: Transform | None) -> None:
-        self.mesh_vbo = mesh.mesh_vbo
-        self.mesh_ebo = mesh.mesh_ebo
         self.draw_state = (mesh.mesh_vao, pipeline)
+        self.has_elements = mesh.mesh_ebo is not None
+        self.mesh_vao = mesh.mesh_vao
 
-        self.draw_count = mesh.element_count if self.mesh_ebo != -1 else mesh.vertex_count
+        self.draw_count = mesh.element_count if self.has_elements else mesh.vertex_count
 
         self.model_mat_loc = -1
         if not trans is None:
@@ -31,20 +31,18 @@ class DrawBatch:
                 utils.warn(f"[DrawBatch] A Transform was supplied but shader \"{pipeline.shader_name}\" doesn't use it")
 
     def draw(self) -> None:
+        gl.glBindVertexArray(self.mesh_vao)
+        
         if self.model_mat_loc != -1:
             gl.glUniformMatrix4fv(self.model_mat_loc, 1, True, self.model_transform._trans_matrix)
 
-        gl.glBindBuffer(gl.GL_ARRAY_BUFFER, self.mesh_vbo)
-
-        if self.mesh_ebo != -1:
-            gl.glBindBuffer(gl.GL_ELEMENT_ARRAY_BUFFER, self.mesh_ebo)
-            gl.glDrawElements(gl.GL_TRIANGLES, self.draw_count, gl.GL_UNSIGNED_INT, 0)
+        if self.has_elements:
+            gl.glDrawElements(gl.GL_TRIANGLES, self.draw_count, gl.GL_UNSIGNED_INT, None)
             return
 
         gl.glDrawArrays(gl.GL_TRIANGLES, 0, self.draw_count)
 
-    mesh_vbo: int
-    mesh_ebo: int
+    mesh_vao: np.uint32
 
     model_mat_loc: int
     model_transform: Transform | None

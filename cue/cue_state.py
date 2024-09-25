@@ -1,5 +1,5 @@
 from .rendering import cue_renderer as ren, cue_scene as ren_sc, cue_camera as ren_cam
-from . import cue_sequence as seq, cue_entity_storage as en#, cue_asset_manager as ast
+from . import cue_sequence as seq, cue_entity_storage as en, cue_assets as ast
 
 # == Cue Game State ==
 
@@ -13,7 +13,7 @@ class GameState:
 
     sequencer: 'seq.CueSequencer'
     entity_storage: 'en.EntityStorage'
-    asset_manager: 'en.AssetManager'
+    asset_manager: 'ast.AssetManager'
 
     # == main binding states ==
 

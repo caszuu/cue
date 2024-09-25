@@ -1,97 +1,84 @@
 import pygame as pg
 import OpenGL.GL as gl
 import numpy as np
-import os
-import struct
 
 from .. import cue_utils as utils
 
 # == Cue Resource Types (mostly rendering related) ==
 
 class GPUMesh:
-    __slots__ = ["mesh_vao", "mesh_ebo", "mesh_vbo", "vertex_count", "element_count"]
+    __slots__ = ["mesh_vao", "mesh_ebo", "mesh_pos_vbo", "mesh_norm_vbo", "mesh_uv_vbo", "vertex_count", "element_count"]
 
-    def __init__(self, vao: np.uint32) -> None:
-        # if not os.path.exists(path):
-        #     utils.abort(f"Can't find a mesh resource in {path}")
-
-        # load mesh data from disk
-
-        # scene = pywavefront.Wavefront(path, strict=False)
-        # scene.parse()
-
-        # index_set = set()
-        # index_buf = b''
-
-        # for name, mesh in scene.meshes.items():
-        #     # if not mesh.has_faces:
-        #     #     print(f"{os.path.basename(path)}: skipping mesh {name}, does not contain faces")
-        #     #     continue
-            
-        #     for face in mesh.faces:
-        #         if len(face) != 3:
-        #             print(f"{os.path.basename(path)}: skipping mesh {name}, contains non-triangle faces")
-        #             continue
-
-        #         index_buf += struct.pack("I", *face)
-                
-        #         for i in face:
-        #             index_set.add(i)
-        
-        # vert_buf = b''
-
-        # for i in index_set:
-        #     vert_buf += struct.pack("f", *scene.vertices[i])
-
-        # print(scene.vertices)
-
+    def __init__(self) -> None:
         # gen opengl buffers
 
-        self.mesh_vao = vao
-        self.mesh_vbo = gl.glGenBuffers(1)
-        self.mesh_ebo = -1
-
-        # gl.glBindBuffer(gl.GL_ARRAY_BUFFER, self.mesh_vbo)
-        # gl.glBufferData(gl.GL_ARRAY_BUFFER, len(vert_buf), vert_buf, gl.GL_STATIC_DRAW)
-
-        # gl.glBindBuffer(gl.GL_ELEMENT_ARRAY_BUFFER, self.mesh_ebo)
-        # gl.glBufferData(gl.GL_ELEMENT_ARRAY_BUFFER, len(index_buf), index_buf, gl.GL_STATIC_DRAW)
-
-        # # gl.glVertexAttribPointer(0, 3, gl.GL_FLOAT, gl.GL_FALSE, 3 * 4, 0)
-        # gl.glEnableVertexAttribArray(0)
+        self.mesh_vao = gl.glGenVertexArrays(1)
+        self.mesh_pos_vbo, self.mesh_norm_vbo, self.mesh_uv_vbo = gl.glGenBuffers(3)
+        self.mesh_ebo = None
 
         self.vertex_count = 0
         self.element_count = 0
 
     def __del__(self) -> None:
-        bufs = [self.mesh_vbo, self.mesh_ebo] if self.mesh_ebo != 1 else [self.mesh_vbo]
+        bufs = [self.mesh_pos_vbo, self.mesh_norm_vbo, self.mesh_uv_vbo]
+        
+        if self.mesh_ebo is not None:
+            bufs += [self.mesh_ebo]
 
         gl.glDeleteBuffers(len(bufs), np.array(bufs))
 
-    def bind(self) -> None:
-        gl.glBindBuffer(gl.GL_ARRAY_BUFFER, self.mesh_vbo)
-
-        if self.mesh_ebo != -1:
-            gl.glBindBuffer(gl.GL_ELEMENT_ARRAY_BUFFER, self.mesh_ebo)
-
     # mutator funcs
 
-    def write_to(self, vbo_data = b"", vertex_count: int = 0, ebo_data = b"", element_count = 0) -> None:
-        if len(vbo_data):
-            gl.glBindBuffer(gl.GL_ARRAY_BUFFER, self.mesh_vbo)
-            gl.glBufferData(gl.GL_ARRAY_BUFFER, vbo_data, gl.GL_STATIC_DRAW)
+    def write_to(self, pos_data = None, norm_data = None, uv_data = None, vertex_count: int = 0, ebo_data = None, element_count: int = 0) -> None:
+        gl.glBindVertexArray(self.mesh_vao)
+
+        # pos
+
+        if pos_data is not None:
+            gl.glBindBuffer(gl.GL_ARRAY_BUFFER, self.mesh_pos_vbo)
+            gl.glBufferData(gl.GL_ARRAY_BUFFER, pos_data, gl.GL_STATIC_DRAW)
+            self.vertex_count = vertex_count
+        
+        gl.glVertexAttribPointer(0, 3, gl.GL_FLOAT, False, 3 * 4, None)
+        gl.glEnableVertexAttribArray(0)
+
+        # norm
+
+        if norm_data is not None:
+            gl.glBindBuffer(gl.GL_ARRAY_BUFFER, self.mesh_norm_vbo)
+            gl.glBufferData(gl.GL_ARRAY_BUFFER, norm_data, gl.GL_STATIC_DRAW)
             self.vertex_count = vertex_count
 
-        if len(ebo_data):
-            if self.mesh_ebo == -1:
+        gl.glVertexAttribPointer(1, 3, gl.GL_FLOAT, False, 3 * 4, None)
+        gl.glEnableVertexAttribArray(1)
+
+        # uvs
+
+        if uv_data is not None:
+            gl.glBindBuffer(gl.GL_ARRAY_BUFFER, self.mesh_uv_vbo)
+            gl.glBufferData(gl.GL_ARRAY_BUFFER, uv_data, gl.GL_STATIC_DRAW)
+            self.vertex_count = vertex_count
+
+        gl.glVertexAttribPointer(2, 2, gl.GL_FLOAT, False, 2 * 4, None)
+        gl.glEnableVertexAttribArray(2)
+
+        # elems
+
+        if ebo_data is not None:
+            if self.mesh_ebo is None:
                 self.mesh_ebo = gl.glGenBuffers(1)
 
             gl.glBindBuffer(gl.GL_ELEMENT_ARRAY_BUFFER, self.mesh_ebo)
             gl.glBufferData(gl.GL_ELEMENT_ARRAY_BUFFER, ebo_data, gl.GL_STATIC_DRAW)
             self.element_count = element_count
 
-    mesh_vbo: np.uint32
-    mesh_ebo: np.uint32
+        gl.glBindVertexArray(0)
+
+    mesh_pos_vbo: np.uint32
+    mesh_norm_vbo: np.uint32
+    mesh_uv_vbo: np.uint32
+
+    mesh_ebo: np.uint32 | None
     mesh_vao: np.uint32
 
     vertex_count: int
@@ -122,7 +109,7 @@ class GPUTexture:
     def write_to(self, surf: pg.Surface, gl_format: np.uint32 = gl.GL_RGBA, gl_type: np.uint32 = gl.GL_UNSIGNED_BYTE, pg_format: str = "RGBA") -> None:
         gl.glBindTexture(gl.GL_TEXTURE_2D, self.texture_handle)
         
-        gl.glTexImage2D(gl.GL_TEXTURE_2D, 0, gl_format, surf.get_width(), surf.get_height(), 0, gl_format, gl.GL_UNSIGNED_BYTE, pg.image.tobytes(surf, pg_format, flipped=True))
+        gl.glTexImage2D(gl.GL_TEXTURE_2D, 0, gl_format, surf.get_width(), surf.get_height(), 0, gl_format, gl.GL_UNSIGNED_BYTE, pg.image.tobytes(surf, pg_format, True))
 
         self.texture_format = gl_format
         self.texture_size = surf.get_size()
@@ -133,7 +120,7 @@ class GPUTexture:
         gl.glTexImage2D(gl.GL_TEXTURE_2D, 0, gl_format, size[0], size[1], 0, gl_format, gl_type, None)
 
         self.texture_format = gl_format
-        self.texture_size = surf.get_size()
+        self.texture_size = size
 
     def read_back(self) -> pg.Surface:
         raise NotImplemented # would always be a performace hit, should not be generally required
@@ -154,19 +141,11 @@ class CueGLUniformBindings:
 class ShaderPipeline:
     __slots__ = ["shader_program", "shader_name"]
 
-    def __init__(self, vs_path: str, fs_path: str, dbg_name: str) -> None:
-        if not os.path.exists(vs_path):
-            utils.abort(f"Can't find a vertex shader in {vs_path}")
-        
-        if not os.path.exists(fs_path):
-            utils.abort(f"Can't find a fragment shader in {fs_path}")
-
-        def load_shader(shader_type, path):
-            src = open(path, "r")
-
+    def __init__(self, vs_src: str, fs_src: str, dbg_name: str) -> None:
+        def load_shader(shader_type, src):
             s = gl.glCreateShader(shader_type)
 
-            gl.glShaderSource(s, src.read())
+            gl.glShaderSource(s, src)
             gl.glCompileShader(s)
 
             result = gl.glGetShaderiv(s, gl.GL_COMPILE_STATUS)
@@ -174,12 +153,12 @@ class ShaderPipeline:
             if not result:
                 log = gl.glGetShaderInfoLog(s)
 
-                utils.abort(f"error while compiling a shader {os.path.basename(path)}: {str(log)}")
+                utils.abort(f"error while compiling a shader {dbg_name}: {str(log)}")
 
             return s
         
-        vs = load_shader(gl.GL_VERTEX_SHADER, vs_path)
-        fs = load_shader(gl.GL_FRAGMENT_SHADER, fs_path)
+        vs = load_shader(gl.GL_VERTEX_SHADER, vs_src)
+        fs = load_shader(gl.GL_FRAGMENT_SHADER, fs_src)
 
         p = gl.glCreateProgram()
 
@@ -192,7 +171,7 @@ class ShaderPipeline:
         if not result:
             log = gl.glGetProgramInfoLog(p)
 
-            utils.abort(f"error while linking a ShaderPipeline with {os.path.basename(vs_path)} and {os.path.basename(fs_path)}: {log}")
+            utils.abort(f"error while linking a ShaderPipeline {dbg_name}: {log}")
 
         self.shader_program = p
         self.shader_name = dbg_name
