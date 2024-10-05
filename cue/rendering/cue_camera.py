@@ -4,6 +4,8 @@ import OpenGL.GL as gl
 import imgui
 
 import math
+from typing import Any
+from dataclasses import dataclass
 
 from ..im2d.imgui_integ import CueImguiContext
 from .. import cue_utils as utils
@@ -13,9 +15,8 @@ from . import cue_scene as sc
 
 CAMERA_UNIFORM_SIZE = 4 * 4 * np.dtype('float32').itemsize
 
+@dataclass(init=False, slots=True)
 class Camera:
-    __slots__ = ["cam_fov", "cam_near_plane", "cam_far_plane", "cam_proj_mat", "cam_view_proj_matrix", "cam_ubo", "cam_pos", "cam_rot", "attached_imgui_ctx"]
-
     def __init__(self, aspect_ratio: float, fov: float = 90, near_plane: float = .1, far_plane: float = 100) -> None:
         self.cam_pos = pm.Vector3((0., 0., 0.))
         self.cam_rot = pm.Vector3((0., 0., 0.))
@@ -28,6 +29,10 @@ class Camera:
 
         self.set_perspective(aspect_ratio, fov, near_plane, far_plane)
         self.set_view(pm.Vector3((0., 0., 0.)), pm.Vector3((0., 0., 0.)))
+
+        self.cam_clear_bits = gl.GL_COLOR_BUFFER_BIT | gl.GL_DEPTH_BUFFER_BIT
+        self.cam_clear_color = (0., 0., 0., 0.)
+        self.cam_clear_depth = 1.
 
     def __del__(self) -> None:
         gl.glDeleteBuffers(1, np.array([self.cam_ubo]))
@@ -95,11 +100,16 @@ class Camera:
         # == render camera view ==
 
         gl.glBindFramebuffer(gl.GL_FRAMEBUFFER, fb)
+        gl.glEnable(gl.GL_DEPTH_TEST)
+
         gl.glBindBufferBase(gl.GL_UNIFORM_BUFFER, 1, self.cam_ubo)
 
-        # TODO: clear
-        gl.glClearColor(0., 0., 0., 1.)
-        gl.glClear(gl.GL_COLOR_BUFFER_BIT)
+        if self.cam_clear_color is not None:
+            gl.glClearColor(*self.cam_clear_color)
+        if self.cam_clear_depth is not None:
+            gl.glClearDepth(self.cam_clear_depth)
+
+        gl.glClear(self.cam_clear_bits)
 
         scene.frame()
 
@@ -117,13 +127,17 @@ class Camera:
     cam_near_plane: float
     cam_far_plane: float
 
+    cam_clear_bits: Any
+    cam_clear_color: tuple[float, float, float, float] | None
+    cam_clear_depth: float | None
+
     # note: do *not* modify these directly, use set_view() to change camera pos and dir
     cam_pos: pm.Vector3
     cam_rot: pm.Vector3
 
     # camera state
     cam_proj_mat: np.ndarray
-    cam_proj_view_matrix: np.ndarray
+    cam_view_proj_matrix: np.ndarray
 
     cam_ubo: np.uint32
 

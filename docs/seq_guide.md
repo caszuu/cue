@@ -103,7 +103,7 @@ seq.on_event(pg.KEYDOWN, on_key_down) # schedule on_key_down() to be fired when 
 ```
 Notice two things. First, like with the other `seq` functions, we have to re-schedule in order to not stop receiving events for the same reason as last time. Second, the `on_key_down()` function has a parameter which is not filled by the `seq.on_event` calls, this is because the *last* parameter to an event sequence will be filled by the event data (it's still possible to pass in data using `seq.on_event` like before, they will be put before the event data parameter)
 
-### `seq.create_event`, `cue.fire_event` and Custom Events
+### `seq.create_event`, `seq.fire_event` and Custom Events
 
 Using `seq.create_event` you can use the sequence event system for non-pygame events, they work exactly like pygame events except they are created and fired by the game code.
 
