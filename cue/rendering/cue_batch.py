@@ -32,7 +32,7 @@ class DrawBatch:
 
     def draw(self) -> None:
         gl.glBindVertexArray(self.mesh_vao)
-        
+
         if self.model_mat_loc != -1:
             gl.glUniformMatrix4fv(self.model_mat_loc, 1, True, self.model_transform._trans_matrix)
 

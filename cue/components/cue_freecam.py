@@ -39,7 +39,7 @@ class FreecamController:
         rel = pg.mouse.get_rel()
         dt = GameState.delta_time
 
-        self.free_vel *= 1. - (FreecamController.free_friction * dt)
+        self.free_vel /= 1. + (FreecamController.free_friction * dt)
 
         if self.is_captured:
             forward_vec = pm.Vector3(math.sin(yaw_rot) * math.cos(pitch_rot), math.sin(pitch_rot), math.cos(yaw_rot) * math.cos(pitch_rot)) * -1

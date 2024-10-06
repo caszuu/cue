@@ -34,10 +34,12 @@ class RenderScene:
         scene_batch_buf[batch] = None
 
     def remove(self, batch: DrawBatch) -> None:
-        if batch.is_opaque:
-            attached_batches = self.attached_opaque_batches
-        else:
-            attached_batches = self.attached_non_opaque_batches
+        # if batch.is_opaque:
+        #     attached_batches = self.attached_opaque_batches
+        # else:
+        #     attached_batches = self.attached_non_opaque_batches
+
+        attached_batches = self.attached_opaque_batches
 
         scene_batch_buf = attached_batches[batch.draw_state]
         scene_batch_buf.pop(batch)

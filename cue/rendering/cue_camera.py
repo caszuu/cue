@@ -88,7 +88,7 @@ class Camera:
         )
 
         gl.glBindBuffer(gl.GL_UNIFORM_BUFFER, self.cam_ubo)
-        gl.glBufferSubData(gl.GL_UNIFORM_BUFFER, 0, np.transpose(self.cam_view_proj_matrix))
+        gl.glBufferSubData(gl.GL_UNIFORM_BUFFER, 0, np.transpose(self.cam_view_proj_matrix).flatten())
 
     # == camera api ==
 

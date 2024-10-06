@@ -1,5 +1,11 @@
-from .rendering import cue_renderer as ren, cue_scene as ren_sc, cue_camera as ren_cam
-from . import cue_sequence as seq, cue_entity_storage as en, cue_assets as ast
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    # the following imports technically cause a cyclic import, but they're only used for
+    # type hints, to it's hidden behind a `TYPE_CHECKING` if and never imported while actually running
+
+    from .rendering import cue_renderer as ren, cue_scene as ren_sc, cue_camera as ren_cam
+    from . import cue_sequence as seq, cue_entity_storage as en, cue_assets as ast
 
 # == Cue Game State ==
 
