@@ -1,6 +1,9 @@
 from .entities.cue_entity_types import EntityTypeRegistry
 from typing import Any, Callable
 
+# import built-in types
+from .entities import built_in_manifest
+
 # == Cue Entity System ==
 
 class EntityStorage:

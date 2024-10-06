@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from typing import Callable, Any
 import pygame as pg
 
@@ -8,39 +9,41 @@ import pygame as pg
 # act as the scripting layer of the engine (apart from map scripts)
 
 # an entity type is made of the following functions:
-# - spawn(...) -> Any - always defined, called when spawning an entity of that type, returns a object that will be used as the entity state (can be `None` if not required)
+# - spawn(en_data: dict) -> Any - always defined, called when spawning an entity of that type, returns a object that will be used as the entity state (can be `None` if not required)
 #   - the `spawn` function can take any arguments it wants, when the entity is being spawned from a map file, `entity_data` from the map file will be passed as arguments
 #
 # - despawn(e) -> None - optional, will be called on despawn of the entity
 #   - the `e` might exist longer than that if references exist to it, but it will no longer be called by the game loop
 #     the entity should call `del` on all rendering objects to properly despawn the entity
+#
+# - dev_tick(s: Any, en_data: dict | None) -> Any - optional but recommended, this special callback will *only* be called while in an editor-like app, will be called every frame
+#   - the `s` param will be the same value as the return value from last frame, if this is the first call it will be None
+#     you can use this to keep a state between frames as `spawn` will *never* be called in an editor-like app
+#   - the `en_data` param will be filled with the current `entity_data` dict for the entity
 
 # == entity type registry ==
 
+@dataclass(slots=True)
 class EntityType:
-    spawn_call: Callable
+    spawn_call: Callable[[dict], Any]
     despawn_call: Callable[[Any], None] | None
 
-    # tick_call: Callable[[Any], None] | None
-    # event_call: Callable[[Any, pg.event.Event], None] | None
-
-    # extra metadata
-    assigned_events: list[int] = []
+    dev_call: Callable[[Any, dict], Any] | None
 
 class EntityTypeRegistry:
     # entity type metadata storage
-    entity_types: dict[str, EntityType]
+    entity_types: dict[str, EntityType] = {}
 
     # quick lookup dicts
 
-    spawn_types: dict[str, Callable]
-    despawn_types: dict[str, Callable[[Any], None]]
+    spawn_types: dict[str, Callable] = {}
+    despawn_types: dict[str, Callable] = {}
 
-    event_type_assigns: dict[str, list[int]] # dict[entity_type, list[event_type]]
+    dev_types: dict[str, Callable] = {}
 
 # == entity type init api ==
 
-def create_entity_type(entity_type_name: str, spawn: Callable, despawn: Callable[[Any], None] | None, tick: Callable[[Any], None] | None, event: Callable[[Any, pg.event.Event], bool] | None):
+def create_entity_type(entity_type_name: str, spawn: Callable[[dict], Any], despawn: Callable[[Any], None] | None, dev: Callable[[Any, dict], Any] | None):
     # validate type
     
     if entity_type_name in EntityTypeRegistry.entity_types:
@@ -51,11 +54,11 @@ def create_entity_type(entity_type_name: str, spawn: Callable, despawn: Callable
 
     # add to registry
 
-    et = EntityType(spawn, despawn)
+    et = EntityType(spawn, despawn, dev)
     EntityTypeRegistry.entity_types[entity_type_name] = et
 
     EntityTypeRegistry.spawn_types[entity_type_name] = spawn
     if not despawn == None:
         EntityTypeRegistry.despawn_types[entity_type_name] = despawn
-
-    EntityTypeRegistry.event_type_assigns[entity_type_name] = et.assigned_events # assign by-reference
+    if not dev == None:
+        EntityTypeRegistry.dev_types[entity_type_name] = dev

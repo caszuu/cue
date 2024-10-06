@@ -1,4 +1,3 @@
-from .. import cue_asset as assets
 from .. import cue_sequence as seq
 from ..rendering import cue_scene as sc
 
@@ -11,32 +10,28 @@ from .cue_transform import Transform
 # a generic model rendering component shared between entities
 
 class ModelRenderer:
-    def __init__(self, en_data: dict, en_trans: Transform, target_scene: 'sc.RenderScene' = GameState.active_scene) -> None:
+    def __init__(self, en_data: dict, en_trans: Transform, target_scene: 'sc.RenderScene | None' = None) -> None:
         # load assets from preload or disk
         
-        self.mesh = assets.load(en_data["a_model_mesh"])
-        self.material = assets.load(en_data["a_model_material"])
+        self.mesh = GameState.asset_manager.load_mesh(en_data["a_model_mesh"])
+        self.pipeline = GameState.asset_manager.load_shader(en_data["a_model_vshader"], en_data["a_model_fshader"], en_data["a_model_shader_name"])
 
-        r = self
-        def update_trans(trans: Transform) -> None:
-            m = r
-            if not m is None:
-                m.model_matrix = trans._trans_matrix
-                seq.on_event(trans.change_event_id, update_trans)
+        if target_scene is None:
+            target_scene = GameState.active_scene
 
         self.scene = target_scene
-        self.batch = DrawBatch(self.mesh, self.material.pipeline)
+        self.batch = DrawBatch(self.mesh, self.pipeline, en_trans)
 
         self.model_transform = en_trans
-        seq.on_event(self.model_transform.change_event_id, update_trans)
 
         # insert model into the render_scene
 
         self.is_visible = False
         self.show()
 
-    # def __del__(self) -> None:
-    #     pass
+    def __del__(self) -> None:
+        if self.is_visible:
+            self.hide()
 
     # start rendering this model if hidden
     def show(self) -> None:
@@ -49,6 +44,3 @@ class ModelRenderer:
         if self.is_visible:
             self.scene.remove(self.batch)
             self.is_visible = False
-
-    def _update_trans(trans: Transform) -> None:
-        self.model_matrix = trans.trans_matrix

@@ -60,8 +60,11 @@ class EditorState:
     map_file_path: str | None = None
     has_unsaved_changes: bool = False
 
-    # stores the maps entity datas; dict[en_name, tuple[en_data, tuple[en_type, en_data]]]
+    # stores the maps entity datas; dict[en_name, tuple[en_type, en_data]]
     entity_data_storage: dict[str, tuple[str, dict]]
+
+    # stoeage for entity type specific editor states
+    dev_tick_storage: dict[str, Any]
 
 def reset_editor_ui():
     EditorState.is_settings_win_open = False
@@ -117,6 +120,7 @@ def editor_new_map():
     EditorState.map_file_path = None
     EditorState.has_unsaved_changes = False
     EditorState.entity_data_storage = {}
+    EditorState.dev_tick_storage = {}
     
     reset_editor_ui()
     
@@ -153,9 +157,7 @@ def editor_save_map(path: str | None) -> None:
     entity_export_buf = {}
 
     for en_name, en in EditorState.entity_data_storage.items():
-        en_type = GameState.entity_storage.entity_storage[en_name][1]
-
-        entity_export_buf[en_name] = (en_name, en_type, en)
+        entity_export_buf[en_name] = (en[0], en[1])
 
     # compile map file
 
@@ -202,10 +204,19 @@ def editor_load_map() -> None:
 
 # == editor asset importer ==
 
-import pyassimp as assimp
+try:
+    import pyassimp as assimp
+    assimp_supported = True
+except:
+    utils.warn("Failed to import assimp, Model Importer will not work!")
+    assimp_supported = False
 
 def model_import_ui() -> None:
     with imgui.begin("Model Importer", None):
+        if not assimp_supported:
+            imgui.text("Failed to import Assimp, make sure Assimp is properly\ninstalled before using the Model Importer!")
+            return
+
         if imgui.button("Import External Model"):
             # import a model file using assimp
 
@@ -372,6 +383,10 @@ def editor_process_ui():
             _, EditorState.is_perf_overlay_open = imgui.menu_item("Perf overlay", selected=EditorState.is_perf_overlay_open)
             _, EditorState.is_model_importer_open = imgui.menu_item("Model Importer", selected=EditorState.is_model_importer_open)
 
+            imgui.separator()
+
+            _, EditorState.is_perf_overlay_open = imgui.menu_item("Perf overlay", selected=EditorState.is_perf_overlay_open)
+
             imgui.end_menu()
         
         imgui.end_main_menu_bar()
@@ -472,6 +487,11 @@ def start_editor():
             EditorState.ui_ctx.delta_time(dt)
             
             GameState.sequencer.tick(t)
+
+            # perform dev/editor ticks
+            for name, en in EditorState.entity_data_storage.items():
+                dev_state = EditorState.dev_tick_storage.get(name, None)
+                EditorState.dev_tick_storage[name] = EntityTypeRegistry.dev_types[en[0]](dev_state, en[1])
 
             tt = time.perf_counter() - t
 
