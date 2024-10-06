@@ -181,7 +181,7 @@ def editor_load_map() -> None:
     try:
         with open(path, 'r') as f:
             map_file = json.load(f)
-    except json.JSONDecodeError as e:
+    except json.JSONDecodeError:
         editor_error("The file doesn't seem to be a map file or it's corrupted!")
         return
     except FileNotFoundError:
@@ -200,7 +200,7 @@ def editor_load_map() -> None:
     # note: ignoring the compiled cmf_asset_files
 
     for map_en in map_file["cmf_data"]["map_entities"]:
-        EditorState.entity_data_storage[map_en[0]] = (map_en[1], map.load_entity_data_params(map_en[2]))
+        EditorState.entity_data_storage[map_en[0]] = (map_en[1], map_en[2])
 
 # == editor asset importer ==
 
@@ -380,7 +380,6 @@ def editor_process_ui():
             if imgui.menu_item("Map tree")[0]:
                 pass
 
-            _, EditorState.is_perf_overlay_open = imgui.menu_item("Perf overlay", selected=EditorState.is_perf_overlay_open)
             _, EditorState.is_model_importer_open = imgui.menu_item("Model Importer", selected=EditorState.is_model_importer_open)
 
             imgui.separator()

@@ -1,11 +1,15 @@
 import json
 import copy
 import os
+from typing import Any
 
 from .cue_state import GameState
 
 from .entities.cue_entity_types import EntityTypeRegistry
 from .cue_entity_storage import EntityStorage
+
+from pygame.math import Vector3 as Vec3, Vector2 as Vec2
+
 # from .cue_asset_manager import AssetManager
 
 # == Cue Map Format and Loader ==
@@ -51,33 +55,9 @@ from .cue_entity_storage import EntityStorage
 #     }
 # }
 
-# all strings in `en_data` *must* always be prefixed with a cmf `param type`:
-# - "str://" = generic/arbitrary str
-# - "asset://" = Cue asset handle
-
 # == Map Parser ==
 
 MAP_LOADER_VERSION = 1
-
-def load_entity_data_params(en_data: dict) -> dict:
-    starts_with = str.startswith
-
-    for param in en_data.values():
-        if not param is str:
-            continue # param types only apply to strings
-
-        # match type and convert
-
-        if starts_with(param, "str://"):
-            param = param[6:]
-        
-        elif starts_with(param, "asset://"):
-            param = AssetHandle(param[8:])
-
-        # elif starts_with(param, "entity://"):
-        #     param = 
-
-    return en_data
 
 # loads and parses a map file into EntityStorage and AssetManager, this function should be called within a "loading screen" context
 def load_map(file_path: str) -> None:    
@@ -103,15 +83,25 @@ def load_map(file_path: str) -> None:
         # GameState.asset_manager.preload(map_file["cmf_header"]["asset_list"])
 
         for e in map_file["cmf_data"]["map_entities"]:
-            # process string param types
-            en_data = load_entity_data_params(e["en_data"])
-            
-            GameState.entity_storage.spawn(e["en_type"], e["en_name"], en_data)
+            GameState.entity_storage.spawn(e["en_type"], e["en_name"], e["en_data"])
 
     except KeyError:
         raise ValueError("corrupted map file, missing json fields")
 
 # == Map Compiler ==
+
+# process param type prefixes for string-like types
+def map_encode_entity_params(param):
+    # if isinstance(param, str):
+    #     return "str://" + param
+
+    if isinstance(param, Vec2):
+        return (param.x, param.y)
+
+    elif isinstance(param, Vec3):
+        return (param.x, param.y, param.z)
+
+    raise TypeError("unsupported data type in entity data")
 
 # saves a map file to disk from an `entity_export`, this function is really only used in the on-cue editor for map compilation
 # *warn*: this func will not hesitate to override existing files!
@@ -123,10 +113,8 @@ def compile_map(file_path: str, entity_export: dict[str, tuple[str, dict]]):
 
     for e in entity_export.values():
         header_type_list.add(e[0])
-
-        for param in e[1].values():
-            if param is AssetHandle:
-                header_asset_list.add(param.to_str())
+        
+        # TODO: collect asset metadata
 
     # collect entity data for `cmf_data`
 
@@ -134,16 +122,7 @@ def compile_map(file_path: str, entity_export: dict[str, tuple[str, dict]]):
 
     for name, e in entity_export.items():
         params = copy.deepcopy(e[1]) # deepcopy to avoid modifying the source `entity_export`
-        
-        # process param type prefixes for string-like types
-        for param in params.values():
-            if param is str:
-                param = "str://" + param
-
-            elif param is AssetHandle:
-                param = "asset://" + param.to_str()
-
-        entities.append((name, e[0], params))
+        entities.append((name, e[0], e[1]))
 
     # dump the final json
 
@@ -159,5 +138,5 @@ def compile_map(file_path: str, entity_export: dict[str, tuple[str, dict]]):
     }
 
     with open(file_path, 'w') as f:
-        json.dump(map_file, f, indent=4)
+        json.dump(map_file, f, indent=4, default=map_encode_entity_params)
 
