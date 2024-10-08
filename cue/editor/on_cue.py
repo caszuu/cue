@@ -44,8 +44,10 @@ class EditorState:
     is_settings_win_open: bool = False
     is_perf_overlay_open: bool = False
     is_model_importer_open: bool = False
+    is_entity_tree_open: bool = False
 
     on_ensure_saved_success: Callable[[], None] | None = None
+    entity_tree_filter: str = ""
 
     # model import state
 
@@ -59,6 +61,8 @@ class EditorState:
 
     map_file_path: str | None = None
     has_unsaved_changes: bool = False
+
+    # entity state
 
     # stores the maps entity datas; dict[en_name, tuple[en_type, en_data]]
     entity_data_storage: dict[str, tuple[str, dict]]
@@ -201,6 +205,28 @@ def editor_load_map() -> None:
 
     for map_en in map_file["cmf_data"]["map_entities"]:
         EditorState.entity_data_storage[map_en[0]] = (map_en[1], map_en[2])
+
+# == editor entity defs ==
+
+def entity_tree_ui():
+    with imgui.begin("Entity Tree", None):
+        imgui.button("+"); imgui.same_line()
+        imgui.button("-"); imgui.same_line()
+
+        _, EditorState.entity_tree_filter = imgui.input_text("filter", value=EditorState.entity_tree_filter)
+        filter_state = EditorState.entity_tree_filter
+
+        if imgui.begin_child("entity_tree_list", 0, 0, True):
+            for name, en in EditorState.entity_data_storage.items():
+                if filter_state not in name:
+                    continue
+
+                imgui.text(name)
+
+                imgui.same_line()
+                imgui.text_colored(f"({en[0]})", .5, .5, .5, 1.)
+            
+            imgui.end_child()
 
 # == editor asset importer ==
 
@@ -377,10 +403,8 @@ def editor_process_ui():
             imgui.end_menu()
 
         if imgui.begin_menu("Tools"):
-            if imgui.menu_item("Map tree")[0]:
-                pass
-
-            _, EditorState.is_model_importer_open = imgui.menu_item("Model Importer", selected=EditorState.is_model_importer_open)
+            _, EditorState.is_entity_tree_open = imgui.menu_item("Entity tree", selected=EditorState.is_entity_tree_open)
+            _, EditorState.is_model_importer_open = imgui.menu_item("Model importer", selected=EditorState.is_model_importer_open)
 
             imgui.separator()
 
@@ -395,6 +419,9 @@ def editor_process_ui():
         imgui.open_popup("Unsaved Changes")
 
     # == editor windows and overlays ==
+    
+    if EditorState.is_entity_tree_open:
+        entity_tree_ui()
 
     if EditorState.is_model_importer_open:
         model_import_ui()

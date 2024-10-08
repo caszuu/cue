@@ -83,7 +83,7 @@ def load_map(file_path: str) -> None:
         # GameState.asset_manager.preload(map_file["cmf_header"]["asset_list"])
 
         for e in map_file["cmf_data"]["map_entities"]:
-            GameState.entity_storage.spawn(e["en_type"], e["en_name"], e["en_data"])
+            GameState.entity_storage.spawn(e[1], e[0], e[2])
 
     except KeyError:
         raise ValueError("corrupted map file, missing json fields")
