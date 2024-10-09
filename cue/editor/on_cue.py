@@ -135,16 +135,6 @@ def editor_new_map():
 
     EditorState.editor_freecam = FreecamController(GameState.active_camera)
 
-    pipeline = res.ShaderPipeline(open(os.path.dirname(__file__) + "/test_trig.vert", 'r').read(), open(os.path.dirname(__file__) + "/test_col.frag", 'r').read(), "test_screenspace")
-    mesh = res.GPUMesh()
-
-    trans = Transform(pm.Vector3(1, 0, 1), pm.Vector3(0, 0, 0), pm.Vector3(2, 2, 2))
-
-    mesh_ins = bat.DrawBatch(mesh, pipeline, trans)
-    mesh_ins.draw_count = 3
-
-    GameState.active_scene.append(mesh_ins)
-
 def editor_save_map(path: str | None) -> None:
     if path == None:
         path = filedialpy.saveFile(title="Save map file", filter=["*.json"])
@@ -179,6 +169,7 @@ def editor_load_map() -> None:
 
     # clear the map data
     editor_new_map()
+    EditorState.map_file_path = path
 
     # load up the map file
 
@@ -209,19 +200,52 @@ def editor_load_map() -> None:
 # == editor entity defs ==
 
 def entity_tree_ui():
+    imgui.set_next_window_size(305, 350, condition=imgui.FIRST_USE_EVER)
+
     with imgui.begin("Entity Tree", None):
-        imgui.button("+"); imgui.same_line()
-        imgui.button("-"); imgui.same_line()
+        add_en = imgui.button("+")
+        if imgui.is_item_hovered():
+            imgui.begin_tooltip()
+            imgui.text("Create an entity"); imgui.same_line()
+            imgui.text_colored("(Ctrl+a)", .5, .5, .5, 1.)
+            imgui.end_tooltip()
+
+        imgui.same_line()
+        
+        del_en = imgui.button("-")
+        if imgui.is_item_hovered():
+            imgui.begin_tooltip()
+            imgui.text("Delete an entity"); imgui.same_line()
+            imgui.text_colored("(Ctrl+Del)", .5, .5, .5, 1.)
+            imgui.end_tooltip()
+
+        imgui.same_line()
 
         _, EditorState.entity_tree_filter = imgui.input_text("filter", value=EditorState.entity_tree_filter)
         filter_state = EditorState.entity_tree_filter
+
+        next_in_filter: str | None = None
+        last_was_selected: bool = False
 
         if imgui.begin_child("entity_tree_list", 0, 0, True):
             for name, en in EditorState.entity_data_storage.items():
                 if filter_state not in name:
                     continue
 
-                imgui.text(name)
+                clicked, selected = imgui.selectable(name, selected=EditorState.selected_entity == name)
+                if clicked:
+                    EditorState.selected_entity = name if selected else None
+
+                # open entities editor on double click
+                if imgui.is_item_hovered() and imgui.is_mouse_double_clicked(imgui.MOUSE_BUTTON_LEFT):
+                    EditorState.entities_in_editing.add(name)
+
+                # check for getting next selection in order
+                if selected:
+                    last_was_selected = True
+                elif last_was_selected:
+                    last_was_selected = False
+                    next_in_filter = name
 
                 imgui.same_line()
                 imgui.text_colored(f"({en[0]})", .5, .5, .5, 1.)
@@ -506,6 +530,9 @@ def start_editor():
 
             # == tick ==
 
+            EditorState.ui_ctx.set_as_current_context()
+            imgui.new_frame()
+
             dt = time.perf_counter() - t
             t = time.perf_counter()
 
@@ -514,22 +541,20 @@ def start_editor():
             
             GameState.sequencer.tick(t)
 
+            if should_exit:
+                ensure_map_saved(lambda: sys.exit(0))
+            editor_process_ui()
+
             # perform dev/editor ticks
             for name, en in EditorState.entity_data_storage.items():
                 dev_state = EditorState.dev_tick_storage.get(name, None)
                 EditorState.dev_tick_storage[name] = EntityTypeRegistry.dev_types[en[0]](dev_state, en[1])
+                
+                del dev_state # delete the ref, so it might get cleaned up if deleted (causes issued if it's the last entity in the map)
 
             tt = time.perf_counter() - t
 
             # == frame ==
-
-            EditorState.ui_ctx.set_as_current_context()
-            imgui.new_frame()
-
-            if should_exit:
-                ensure_map_saved(lambda: sys.exit(0))
-
-            editor_process_ui()
 
             # cute world origin indicator
             gizmo.draw_line(pm.Vector3(0, 0, 0), pm.Vector3(.2, 0, 0), pm.Vector3(.35, .05, .05), pm.Vector3(1, 0, 0))
