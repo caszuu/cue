@@ -70,6 +70,15 @@ class EditorState:
     # stoeage for entity type specific editor states
     dev_tick_storage: dict[str, Any]
 
+    # currently editor-wide selected entity
+    selected_entity: str | None = None
+
+    # entities currently with a editor panel open, don't have to be selected
+    entities_in_editing: set[str] = set()
+    # the editor panel (imgui window) ids map from entity names (persistent only for the current session; isn't saved)
+    entity_editor_ids: dict[str, int] = {}
+    next_editor_id: int = 0
+
 def reset_editor_ui():
     EditorState.is_settings_win_open = False
     EditorState.on_ensure_saved_success = None
@@ -199,6 +208,100 @@ def editor_load_map() -> None:
 
 # == editor entity defs ==
 
+def handle_entity_rename(old_name: str, new_name: str) -> bool:
+    # validate rename
+
+    if not new_name: # no empty names
+        return False
+
+    if new_name in EditorState.entity_data_storage: # name conflict
+        return False
+
+    # handle renaming in all places where this entity might be refered to
+    EditorState.entity_data_storage[new_name] = EditorState.entity_data_storage.pop(old_name)
+    EditorState.entity_editor_ids[new_name] = EditorState.entity_editor_ids.pop(old_name)
+    EditorState.dev_tick_storage.pop(old_name, None) # just discard it to be sure
+
+    EditorState.entities_in_editing.discard(old_name)
+    EditorState.entities_in_editing.add(new_name)
+
+    if EditorState.selected_entity == old_name:
+        EditorState.selected_entity = new_name
+    
+    return True
+
+def entity_edit_ui(en_name: str):
+    edit_id = EditorState.entity_editor_ids.setdefault(en_name, EditorState.next_editor_id)
+    if edit_id == EditorState.next_editor_id:
+        EditorState.next_editor_id += 1
+
+    _, opened = imgui.begin(f"Entity Editor - {en_name}###entity_edit_{edit_id}", closable=True, flags=imgui.WINDOW_NO_SAVED_SETTINGS)
+    if opened:
+        if imgui.is_window_focused():
+            EditorState.selected_entity = en_name
+
+        en_type, en_data = EditorState.entity_data_storage[en_name]
+
+        changed_name, new_en_name = imgui.input_text("entity name", en_name)
+        changed_type, new_en_type_id = imgui.combo("entity type", EntityTypeRegistry.entity_names.index(en_type), EntityTypeRegistry.entity_names)
+
+        if changed_name:
+            if handle_entity_rename(en_name, new_en_name):
+                en_name = new_en_name
+
+        if changed_type:
+            # handle cleanup and change of the entity type
+            new_en_type = EntityTypeRegistry.entity_names[new_en_type_id]
+
+            EditorState.entity_data_storage[en_name] = (new_en_type, en_data)
+            EditorState.dev_tick_storage.pop(en_name, None) # discard probably uncompatable editor state
+
+            en_type = new_en_type
+
+        imgui.separator()
+
+    else:
+        # editor panel closed
+        EditorState.entities_in_editing.discard(en_name)
+
+    imgui.end()
+
+import random
+
+def editor_create_entity():
+    new_en = ("bt_static_mesh", {
+          "pos": [0.0, random.random(), random.random()],
+          "rot": [0.0, 0.0, 0.0],
+          "a_model_mesh": "models/icosph.npz",
+          "a_model_vshader": "shaders/base_cam.vert",
+          "a_model_fshader": "shaders/unlit.frag",
+          "a_model_shader_name": "test_shasdasd"
+        })
+    en_name = f"test_en{random.randint(0, 800000000000)}"
+
+    EditorState.has_unsaved_changes = True
+
+    EditorState.entity_data_storage[en_name] = new_en
+    EditorState.selected_entity = en_name
+
+    # immidatelly open an editor for the entity
+    EditorState.entities_in_editing.add(en_name)
+
+def editor_delete_entity(next_to_select: str | None = None):
+    if EditorState.selected_entity is None:
+        return
+
+    EditorState.has_unsaved_changes = True
+    
+    try:
+        EditorState.entity_data_storage.pop(EditorState.selected_entity)
+    except:
+        utils.error(f"[editor] failed to delete an entity {EditorState.selected_entity}, this is a bug")
+    
+    EditorState.entities_in_editing.discard(EditorState.selected_entity) # close the entities editing panel if was open
+    EditorState.dev_tick_storage.pop(EditorState.selected_entity, None) # cleanup dev state (if any) to save memory
+    EditorState.selected_entity = next_to_select
+
 def entity_tree_ui():
     imgui.set_next_window_size(305, 350, condition=imgui.FIRST_USE_EVER)
 
@@ -251,6 +354,12 @@ def entity_tree_ui():
                 imgui.text_colored(f"({en[0]})", .5, .5, .5, 1.)
             
             imgui.end_child()
+        
+        if add_en:
+            editor_create_entity()
+        
+        if del_en:
+            editor_delete_entity(next_in_filter)
 
 # == editor asset importer ==
 
@@ -449,6 +558,9 @@ def editor_process_ui():
 
     if EditorState.is_model_importer_open:
         model_import_ui()
+
+    for en in list(EditorState.entities_in_editing): # note: doing a copy here, as [entities_in_editing] might change mid iteration 
+        entity_edit_ui(en)
 
     if EditorState.is_perf_overlay_open:
         perf_overlay()

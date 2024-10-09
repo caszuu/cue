@@ -33,6 +33,7 @@ class EntityType:
 class EntityTypeRegistry:
     # entity type metadata storage
     entity_types: dict[str, EntityType] = {}
+    entity_names: list[str] = []
 
     # quick lookup dicts
 
@@ -56,6 +57,7 @@ def create_entity_type(entity_type_name: str, spawn: Callable[[dict], Any], desp
 
     et = EntityType(spawn, despawn, dev)
     EntityTypeRegistry.entity_types[entity_type_name] = et
+    EntityTypeRegistry.entity_names.append(entity_type_name)
 
     EntityTypeRegistry.spawn_types[entity_type_name] = spawn
     if not despawn == None:
