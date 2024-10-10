@@ -30,6 +30,8 @@ from ..components.cue_freecam import FreecamController
 
 # == On-Cue Editor ==
 
+EDITOR_ASSET_DIR = "assets/"
+
 # editors global state
 class EditorState:
     # viewport state
@@ -605,7 +607,7 @@ def start_editor():
     t = time.perf_counter()
     GameState.sequencer = CueSequencer(t)
     GameState.entity_storage = EntityStorage()
-    GameState.asset_manager = AssetManager("assets/")
+    GameState.asset_manager = AssetManager(EDITOR_ASSET_DIR)
 
     GameState.renderer = CueRenderer((1280, 720), vsync=True)
     pg.display.set_caption("On-Cue Editor")
