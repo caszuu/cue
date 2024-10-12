@@ -239,20 +239,44 @@ def handle_entity_rename(old_name: str, new_name: str) -> bool:
     
     return True
 
+def add_new_prop(en_data: dict[str, Any], start_name: str, start_value: Any):
+    if not start_name in en_data:
+        en_data[start_name] = start_value
+        return
+    
+    i = 1
+    while True:
+        start_name_extended = f"{start_name}_{i}"
+        if not start_name_extended in en_data:
+            en_data[start_name_extended] = start_value
+            return
+        
+        i += 1
+
 def entity_edit_ui(en_name: str):
     edit_id = EditorState.entity_editor_ids.setdefault(en_name, EditorState.next_editor_id)
     if edit_id == EditorState.next_editor_id:
         EditorState.next_editor_id += 1
 
-    _, opened = imgui.begin(f"Entity Editor - {en_name}###entity_edit_{edit_id}", closable=True, flags=imgui.WINDOW_NO_SAVED_SETTINGS)
+    imgui.set_next_window_size(500, 350, imgui.FIRST_USE_EVER)
+
+    expanded, opened = imgui.begin(f"Entity Editor - {en_name}###entity_edit_{edit_id}", closable=True, flags=imgui.WINDOW_NO_SAVED_SETTINGS)
     if opened:
+        if not expanded:
+            imgui.end()
+            return # unless we return here, imgui crashes
+
+        # entity header
+
         if imgui.is_window_focused():
             EditorState.selected_entity = en_name
 
         en_type, en_data = EditorState.entity_data_storage[en_name]
 
-        changed_name, new_en_name = imgui.input_text("entity name", en_name)
+        imgui.push_item_width(imgui.get_content_region_available()[0] * .3)
+        changed_name, new_en_name = imgui.input_text("entity name", en_name); imgui.same_line()
         changed_type, new_en_type_id = imgui.combo("entity type", EntityTypeRegistry.entity_names.index(en_type), EntityTypeRegistry.entity_names)
+        imgui.pop_item_width()
 
         if changed_name:
             if handle_entity_rename(en_name, new_en_name):
@@ -269,6 +293,153 @@ def entity_edit_ui(en_name: str):
 
         imgui.separator()
 
+        # entity props
+
+        imgui.text("entity props:")
+        imgui.indent()
+
+        imgui.push_style_color(imgui.COLOR_FRAME_BACKGROUND, 0., 0., 0., 0.)
+
+        changed_data = False
+
+        with imgui.begin_table("Entity Properties", 2, imgui.TABLE_BORDERS | imgui.TABLE_RESIZABLE):
+            imgui.table_next_row()
+            imgui.table_next_column()
+            imgui.text("prop")
+            
+            imgui.table_next_column()
+            imgui.text("value")
+
+            for prop, value in dict(en_data).items():
+                imgui.push_id(prop)
+
+                # prop name
+                imgui.table_next_row()
+                imgui.table_next_column()
+                imgui.push_item_width(-imgui.FLOAT_MIN)
+
+                changed_name, new_prop = imgui.input_text("##prop", prop, flags=imgui.INPUT_TEXT_ENTER_RETURNS_TRUE)
+                if changed_name and not (new_prop in en_data or not new_prop):
+                        # new prop name, rename it
+                        en_data[new_prop] = en_data.pop(prop)
+                        imgui.pop_id()
+                        imgui.push_id(new_prop)
+                        prop = new_prop
+
+                changed_data |= changed_name
+
+                imgui.pop_item_width()
+
+                # prop value
+                imgui.table_next_column()
+                imgui.push_item_width(-imgui.FLOAT_MIN)
+
+                if isinstance(value, int | float):
+                    changed_val, val = imgui.drag_float("##val", value, .01)
+                    en_data[prop] = val
+                elif isinstance(value, Vec2):
+                    changed_val, val = imgui.drag_float2("##val", value.x, value.y, .01)
+                    en_data[prop] = Vec2(val)
+                elif isinstance(value, Vec3):
+                    changed_val, val = imgui.drag_float3("##val", value.x, value.y, value.z, .01)
+                    en_data[prop] = Vec3(val)
+                elif isinstance(value, str):
+                    changed_val, val = imgui.input_text("##val", value)
+                    en_data[prop] = val
+                # elif isinstance(value, list):
+                # elif isinstance(value, dict):
+                else:
+                    imgui.text_disabled(repr(value))
+                    changed_val = False
+
+                changed_data |= changed_val
+
+                imgui.pop_item_width()
+                imgui.pop_id()
+
+        imgui.pop_style_color()
+
+        # add button
+
+        if imgui.small_button("add prop"):
+            imgui.open_popup("##add_prop")
+
+        if imgui.is_item_hovered():
+            imgui.begin_tooltip()
+            imgui.text("Adds a new prop to entity props.")
+            imgui.same_line()
+            imgui.text_colored("(Shift+A)", .5, .5, .5, 1.)
+            imgui.end_tooltip()
+
+        # delete button
+
+        imgui.same_line()
+        if imgui.small_button("delete prop"):
+            imgui.open_popup("##delete_prop")
+
+        if imgui.is_item_hovered():
+            imgui.begin_tooltip()
+            imgui.text("Adds a new prop to entity props.")
+            imgui.same_line()
+            imgui.text_colored("(Shift+A)", .5, .5, .5, 1.)
+            imgui.end_tooltip()
+        
+        imgui.unindent()
+        
+        # add menu
+
+        if imgui.begin_popup("##add_prop"):
+            imgui.text("Select prop type to add")
+            imgui.separator()
+
+            if imgui.selectable("Number")[0]:
+                add_new_prop(en_data, "new_float", 0.)
+                imgui.close_current_popup()
+
+            if imgui.selectable("Vector 2")[0]:
+                add_new_prop(en_data, "new_vec2", Vec2())
+                imgui.close_current_popup()
+
+            if imgui.selectable("Vector 3")[0]:
+                add_new_prop(en_data, "new_vec3", Vec3())
+                imgui.close_current_popup()
+
+            if imgui.selectable("String / Path")[0]:
+                add_new_prop(en_data, "new_str", "")
+                imgui.close_current_popup()
+            
+            imgui.end_popup()
+
+        # delete menu
+        
+        if imgui.begin_popup("##delete_prop"):
+            imgui.text("Select prop to delete")
+            imgui.separator()
+
+            for prop in en_data.keys():
+                if imgui.selectable(prop)[0]:
+                    en_data.pop(prop)
+                    imgui.close_current_popup()
+                    break
+            
+            imgui.end_popup()
+
+        imgui.spacing(); imgui.spacing()
+
+        dev_error = EditorState.dev_tick_errors.get(en_name, None)
+        if dev_error is not None:
+            imgui.text("entity status:")
+            imgui.same_line()
+            with imgui.begin_child("dev_tick_report", border=True):
+                imgui.push_style_color(imgui.COLOR_TEXT, 1., .35, .35, 1.)
+                imgui.text_wrapped(dev_error)
+                imgui.pop_style_color()
+        else:
+            imgui.text("entity status: no entity errors.")
+
+        if changed_data:
+            EditorState.dev_tick_errors.pop(en_name, None)
+
     else:
         # editor panel closed
         EditorState.entities_in_editing.discard(en_name)
@@ -279,15 +450,23 @@ import random
 
 def editor_create_entity():
     new_en = ("bt_static_mesh", {
-          "t_pos": Vec3([0.0, random.random(), random.random()]),
+          "t_pos": Vec3([0.0, 0.0, 0.0]),
           "t_rot": Vec3([0.0, 0.0, 0.0]),
           "t_scale": Vec3([1.0, 1.0, 1.0]),
           "a_model_mesh": "models/icosph.npz",
           "a_model_vshader": "shaders/base_cam.vert",
           "a_model_fshader": "shaders/unlit.frag",
-          "a_model_shader_name": "test_shasdasd"
         })
-    en_name = f"test_en{random.randint(0, 800000000000)}"
+    en_name = f"en_new"
+
+    if en_name in EditorState.entity_data_storage:
+        i = 0
+        while True:
+            en_name = f"en_new_{i}"
+            if not en_name in EditorState.entity_data_storage:
+                break
+
+            i += 1
 
     EditorState.has_unsaved_changes = True
 
@@ -646,8 +825,6 @@ def start_editor():
                     EditorState.ui_ctx.set_mouse_input(e.pos)
 
                 elif e.type == pg.VIDEORESIZE:
-                    EditorState.ui_ctx.resize_display(e.size)
-                    GameState.renderer.on_resize(e.size)
                     GameState.active_camera.re_aspect(GameState.renderer.win_aspect)
 
                 elif e.type == pg.QUIT:
@@ -660,11 +837,11 @@ def start_editor():
 
             # == tick ==
 
-            EditorState.ui_ctx.set_as_current_context()
-            imgui.new_frame()
-
             dt = time.perf_counter() - t
             t = time.perf_counter()
+
+            EditorState.ui_ctx.set_as_current_context()
+            imgui.new_frame()
 
             GameState.delta_time = dt
             EditorState.ui_ctx.delta_time(dt)

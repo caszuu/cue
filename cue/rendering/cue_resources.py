@@ -115,7 +115,7 @@ class GPUTexture:
 
     def write_to(self, surf: pg.Surface, gl_format: np.uint32 = gl.GL_RGBA, gl_type: np.uint32 = gl.GL_UNSIGNED_BYTE, pg_format: str = "RGBA") -> None:
         gl.glBindTexture(gl.GL_TEXTURE_2D, self.texture_handle)
-        gl.glTexImage2D(gl.GL_TEXTURE_2D, 0, gl_format, surf.get_width(), surf.get_height(), 0, gl_format, gl_type, pg.image.tobytes(surf, pg_format, True))
+        gl.glTexImage2D(gl.GL_TEXTURE_2D, 0, gl_format, surf.get_width(), surf.get_height(), 0, gl_format, gl_type, pg.image.tobytes(surf, pg_format, False)) # textures don't need to flip?
 
         self.texture_format = gl_format
         self.texture_size = surf.get_size()

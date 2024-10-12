@@ -14,7 +14,7 @@ class ModelRenderer:
         # load assets from preload or disk
         
         self.mesh = GameState.asset_manager.load_mesh(en_data["a_model_mesh"])
-        self.pipeline = GameState.asset_manager.load_shader(en_data["a_model_vshader"], en_data["a_model_fshader"], en_data["a_model_shader_name"])
+        self.pipeline = GameState.asset_manager.load_shader(en_data["a_model_vshader"], en_data["a_model_fshader"])
 
         if target_scene is None:
             target_scene = GameState.active_scene

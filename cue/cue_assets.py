@@ -92,7 +92,9 @@ class AssetManager:
 
         return mesh
     
-    def load_shader(self, vs_path: str, fs_path: str, unique_name: str) -> ShaderPipeline:
+    def load_shader(self, vs_path: str, fs_path: str) -> ShaderPipeline:
+        unique_name = f"(vert: {vs_path}, frag: {fs_path})"
+
         c = self.check_cache(unique_name, AssetTypes.SHADER_ASSET)
         if c is not None:
             return c
