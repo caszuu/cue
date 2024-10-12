@@ -1,9 +1,11 @@
-import os, sys, time, pickle, json
+import os, sys, time, pickle, json, traceback
 from typing import Callable, Any
 
 import pygame as pg, pygame.math as pm
 import numpy as np
 import imgui
+
+from pygame.math import Vector2 as Vec2, Vector3 as Vec3
 
 import filedialpy
 
@@ -11,7 +13,7 @@ from ..cue_state import GameState
 from ..cue_assets import AssetManager
 from ..cue_sequence import CueSequencer
 from ..cue_entity_storage import EntityStorage
-from ..entities.cue_entity_types import EntityTypeRegistry
+from ..entities.cue_entity_types import DevTickError, EntityTypeRegistry
 
 from ..rendering.cue_renderer import CueRenderer
 from ..rendering.cue_camera import Camera
@@ -34,14 +36,14 @@ EDITOR_ASSET_DIR = "assets/"
 
 # editors global state
 class EditorState:
-    # viewport state
+    # == viewport state ==
         
     ui_ctx: CueImguiContext
     editor_freecam: FreecamController
     
     error_msg: str | None = None
 
-    # ui state
+    # == ui state ==
 
     is_settings_win_open: bool = False
     is_perf_overlay_open: bool = False
@@ -51,7 +53,7 @@ class EditorState:
     on_ensure_saved_success: Callable[[], None] | None = None
     entity_tree_filter: str = ""
 
-    # model import state
+    # == model import state ==
 
     assimp_scene: Any | None = None
     assimp_path: str | None = None
@@ -59,18 +61,20 @@ class EditorState:
     assimp_sel_mesh: int = 0
     assimp_saved_msg: str | None = None
 
-    # map state
+    # == map state ==
 
     map_file_path: str | None = None
     has_unsaved_changes: bool = False
 
-    # entity state
+    # == entity state ==
 
     # stores the maps entity datas; dict[en_name, tuple[en_type, en_data]]
     entity_data_storage: dict[str, tuple[str, dict]]
 
-    # stoeage for entity type specific editor states
+    # storage for entity type specific editor states
     dev_tick_storage: dict[str, Any]
+    # stores dev tick error messages they may come up
+    dev_tick_errors: dict[str, str]
 
     # currently editor-wide selected entity
     selected_entity: str | None = None
@@ -136,6 +140,9 @@ def editor_new_map():
     EditorState.has_unsaved_changes = False
     EditorState.entity_data_storage = {}
     EditorState.dev_tick_storage = {}
+    EditorState.dev_tick_errors = {}
+    EditorState.selected_entity = None
+    EditorState.entities_in_editing = set()
     
     reset_editor_ui()
     
@@ -272,8 +279,9 @@ import random
 
 def editor_create_entity():
     new_en = ("bt_static_mesh", {
-          "pos": [0.0, random.random(), random.random()],
-          "rot": [0.0, 0.0, 0.0],
+          "t_pos": Vec3([0.0, random.random(), random.random()]),
+          "t_rot": Vec3([0.0, 0.0, 0.0]),
+          "t_scale": Vec3([1.0, 1.0, 1.0]),
           "a_model_mesh": "models/icosph.npz",
           "a_model_vshader": "shaders/base_cam.vert",
           "a_model_fshader": "shaders/unlit.frag",
@@ -337,9 +345,16 @@ def entity_tree_ui():
                 if filter_state not in name:
                     continue
 
+                has_error = EditorState.dev_tick_errors.get(name, None) is not None
+                if has_error:
+                    imgui.push_style_color(imgui.COLOR_TEXT, 1., .35, .35, 1.)
+
                 clicked, selected = imgui.selectable(name, selected=EditorState.selected_entity == name)
                 if clicked:
                     EditorState.selected_entity = name if selected else None
+                
+                if has_error:
+                    imgui.pop_style_color()
 
                 # open entities editor on double click
                 if imgui.is_item_hovered() and imgui.is_mouse_double_clicked(imgui.MOUSE_BUTTON_LEFT):
@@ -605,7 +620,7 @@ def start_editor():
     # init engine
 
     t = time.perf_counter()
-    GameState.sequencer = CueSequencer(t)
+    GameState.static_sequencer = CueSequencer(t)
     GameState.entity_storage = EntityStorage()
     GameState.asset_manager = AssetManager(EDITOR_ASSET_DIR)
 
@@ -639,6 +654,7 @@ def start_editor():
                     should_exit = True
 
                 GameState.sequencer.send_event_id(e.type, e)
+                GameState.static_sequencer.send_event_id(e.type, e)
             
             EditorState.editor_freecam.set_capture(pg.mouse.get_pressed()[2])
 
@@ -654,6 +670,7 @@ def start_editor():
             EditorState.ui_ctx.delta_time(dt)
             
             GameState.sequencer.tick(t)
+            GameState.static_sequencer.tick(t)
 
             if should_exit:
                 ensure_map_saved(lambda: sys.exit(0))
@@ -661,9 +678,22 @@ def start_editor():
 
             # perform dev/editor ticks
             for name, en in EditorState.entity_data_storage.items():
-                dev_state = EditorState.dev_tick_storage.get(name, None)
-                EditorState.dev_tick_storage[name] = EntityTypeRegistry.dev_types[en[0]](dev_state, en[1])
+                if name in EditorState.dev_tick_errors:
+                    continue # do not waste time ticking erroneous entities
                 
+                dev_state = EditorState.dev_tick_storage.get(name, None)
+
+                try:
+                    EditorState.dev_tick_storage[name] = EntityTypeRegistry.dev_types[en[0]](dev_state, en[1])
+                
+                except DevTickError as e:
+                    EditorState.dev_tick_errors[name] = f"validation error: {e}\n{traceback.format_exc()}"
+                    EditorState.dev_tick_storage.pop(name, None) # discard possibly unusable editor state
+
+                except Exception as e:
+                    EditorState.dev_tick_errors[name] = f"{type(e)} exception raised in dev tick: {e}\n{traceback.format_exc()}"
+                    EditorState.dev_tick_storage.pop(name, None) # discard possibly unusable editor state
+
                 del dev_state # delete the ref, so it might get cleaned up if deleted (causes issued if it's the last entity in the map)
 
             tt = time.perf_counter() - t
@@ -671,9 +701,9 @@ def start_editor():
             # == frame ==
 
             # cute world origin indicator
-            gizmo.draw_line(pm.Vector3(0, 0, 0), pm.Vector3(.2, 0, 0), pm.Vector3(.35, .05, .05), pm.Vector3(1, 0, 0))
-            gizmo.draw_line(pm.Vector3(0, 0, 0), pm.Vector3(0, .2, 0), pm.Vector3(.05, .35, .05), pm.Vector3(0, 1, 0))
-            gizmo.draw_line(pm.Vector3(0, 0, 0), pm.Vector3(0, 0, .2), pm.Vector3(.05, .05, .35), pm.Vector3(0, 0, 1))
+            gizmo.draw_line(Vec3(0, 0, 0), Vec3(.2, 0, 0), Vec3(.35, .05, .05), Vec3(1, 0, 0))
+            gizmo.draw_line(Vec3(0, 0, 0), Vec3(0, .2, 0), Vec3(.05, .35, .05), Vec3(0, 1, 0))
+            gizmo.draw_line(Vec3(0, 0, 0), Vec3(0, 0, .2), Vec3(.05, .05, .35), Vec3(0, 0, 1))
 
             GameState.renderer.frame(GameState.active_camera, GameState.active_scene)
 

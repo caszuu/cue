@@ -12,7 +12,7 @@ from pygame.math import Vector3 as Vec3
 @dataclass(init=False, slots=True)
 class BtStaticMesh:
     def __init__(self, en_data: dict) -> None:
-        self.mesh_trans = Transform(Vec3(en_data["pos"]), Vec3(en_data["rot"]))
+        self.mesh_trans = Transform(Vec3(en_data["t_pos"]), Vec3(en_data["t_rot"]), Vec3(en_data["t_scale"]))
         self.mesh_renderer = ModelRenderer(en_data, self.mesh_trans)
 
     # def __del__(self) -> None:
@@ -34,12 +34,12 @@ def despawn_static_mesh(en: BtStaticMesh) -> None:
 def dev_static_mesh(s: dict | None, en_data: dict) -> dict:
     if s is None:
         # init mesh
-        s = {"mesh": BtStaticMesh(en_data), "en_data": en_data}
+        s = {"mesh": BtStaticMesh(en_data), "en_data": dict(en_data)}
     elif en_data != s["en_data"]:
         # update mesh
         del s["mesh"]
         s["mesh"] = BtStaticMesh(en_data)
-        s["en_data"] = en_data
+        s["en_data"] = dict(en_data)
 
     return s
 
