@@ -100,32 +100,30 @@ class GPUTexture:
     def __del__(self) -> None:
         gl.glDeleteTextures(1, [self.texture_handle])
 
-    def bind_to(self, texture_index):
-        gl.glActiveTexture(texture_index)
-        gl.glBindTexture(gl.GL_TEXTURE_2D, self.texture_handle)
-
     # mutator funcs; note: binds to current active texture and leaves it bound
 
-    def write_to(self, surf: pg.Surface, gl_format: np.uint32 = gl.GL_RGBA, gl_type: np.uint32 = gl.GL_UNSIGNED_BYTE, pg_format: str = "RGBA") -> None:
+    def bind_to(self, texture_index):
+        gl.glActiveTexture(gl.GL_TEXTURE0 + texture_index)
         gl.glBindTexture(gl.GL_TEXTURE_2D, self.texture_handle)
-        
-        gl.glTexImage2D(gl.GL_TEXTURE_2D, 0, gl_format, surf.get_width(), surf.get_height(), 0, gl_format, gl.GL_UNSIGNED_BYTE, pg.image.tobytes(surf, pg_format, True))
-
-        self.texture_format = gl_format
-        self.texture_size = surf.get_size()
 
     def init_null(self, size: tuple[int, int], gl_format: np.uint32, gl_type: np.uint32) -> None:
         gl.glBindTexture(gl.GL_TEXTURE_2D, self.texture_handle)
-        
         gl.glTexImage2D(gl.GL_TEXTURE_2D, 0, gl_format, size[0], size[1], 0, gl_format, gl_type, None)
 
         self.texture_format = gl_format
         self.texture_size = size
 
+    def write_to(self, surf: pg.Surface, gl_format: np.uint32 = gl.GL_RGBA, gl_type: np.uint32 = gl.GL_UNSIGNED_BYTE, pg_format: str = "RGBA") -> None:
+        gl.glBindTexture(gl.GL_TEXTURE_2D, self.texture_handle)
+        gl.glTexImage2D(gl.GL_TEXTURE_2D, 0, gl_format, surf.get_width(), surf.get_height(), 0, gl_format, gl_type, pg.image.tobytes(surf, pg_format, True))
+
+        self.texture_format = gl_format
+        self.texture_size = surf.get_size()
+
     def read_back(self) -> pg.Surface:
         raise NotImplemented # would always be a performace hit, should not be generally required
 
-    texture_handle: np.uint32
+    texture_handle: int
 
     texture_format: np.uint32
     texture_size: tuple[int, int]
