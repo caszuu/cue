@@ -18,6 +18,7 @@ class GameState:
     renderer: 'ren.CueRenderer'
 
     sequencer: 'seq.CueSequencer'
+    static_sequencer: 'seq.CueSequencer'
     entity_storage: 'en.EntityStorage'
     asset_manager: 'ast.AssetManager'
 

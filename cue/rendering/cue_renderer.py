@@ -1,3 +1,6 @@
+from dataclasses import dataclass
+import time
+
 import pygame as pg
 import OpenGL.GL as gl
 
@@ -9,7 +12,7 @@ from .cue_scene import RenderScene
 from .cue_gizmos import draw_gizmos, init_gizmos
 from ..im2d.imgui_integ import CueImguiContext
 
-import time
+from ..cue_state import GameState
 
 # == cue OpenGL renderer backend ==
 
@@ -27,9 +30,8 @@ class PostPass:
 # Rendering backend TODOs:
 # TODO: double-buffering (both CueRenderer and RenderTargets)
 
+@dataclass(init=False, slots=True)
 class CueRenderer:
-    __slots__ = ["win_surf", "win_res", "win_aspect", "model_vao", "post_passes", "fullscreen_imgui_ctx", "cpu_frame_time"]
-
     def __init__(self, res: tuple[int, int] = (0, 0), fullscreen: bool = False, vsync: bool = True) -> None:
         pg.init()
 
@@ -51,14 +53,8 @@ class CueRenderer:
         self.post_passes = []
         self.cpu_frame_time = 0.
 
-        self._setup_vao()
+        GameState.static_sequencer.on_event(pg.VIDEORESIZE, self._on_resize)
         init_gizmos()
-
-    def _setup_vao(self):
-        self.model_vao = gl.glGenVertexArrays(1)
-        
-        gl.glBindVertexArray(self.model_vao)
-        gl.glEnableVertexAttribArray(0)
 
     # == post processing api ==
 
@@ -93,17 +89,17 @@ class CueRenderer:
 
         pg.display.flip()
 
-    def on_resize(self, res: tuple[int, int]) -> None:
-        self.win_res = res
-        self.win_aspect = res[0] / res[1]
+    def _on_resize(self, e) -> None:
+        self.win_res = e.size
+        self.win_aspect = e.size[0] / e.size[1]
+
+        self.fullscreen_imgui_ctx.resize_display(e.size)
+        GameState.static_sequencer.on_event(pg.VIDEORESIZE, self._on_resize)
 
     # OpenGL mode pygame surface (unused)
     win_surf: pg.Surface
     win_res: tuple[int, int]
     win_aspect: float
-
-    model_vao: np.uint32
-    particle_vao: np.uint32
 
     fullscreen_imgui_ctx: CueImguiContext
     post_passes: list[PostPass]

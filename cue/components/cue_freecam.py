@@ -31,7 +31,7 @@ class FreecamController:
         self.controlled_camera = cam
         self.is_captured = False
 
-        seq.next(FreecamController.tick, self)
+        seq.next(self.tick)
 
     def tick(self) -> None:
         yaw_rot, pitch_rot = self.free_rot.yx
