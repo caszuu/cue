@@ -132,8 +132,6 @@ def ensure_map_saved(on_success: Callable[[], None]) -> bool:
 
     return True
 
-from ..components.cue_transform import Transform
-
 # init a default map to act as a background or as a new map
 def editor_new_map():
     EditorState.map_file_path = None
@@ -202,7 +200,7 @@ def editor_load_map() -> None:
         return
 
     if map_file["cmf_ver"] != map.MAP_LOADER_VERSION:
-        editor_error(f"The map file is saved with an unknown cmf format version! (cmf_ver: {map_file['cmf_ver']})")
+        editor_error(f"The map file is saved with an imcompatible cmf format version! (cmf_ver: {map_file['cmf_ver']}; expected: {map.MAP_LOADER_VERSION})")
         return
 
     for et in map_file["cmf_header"]["type_list"]:
@@ -213,7 +211,7 @@ def editor_load_map() -> None:
     # note: ignoring the compiled cmf_asset_files
 
     for map_en in map_file["cmf_data"]["map_entities"]:
-        EditorState.entity_data_storage[map_en[0]] = (map_en[1], map_en[2])
+        EditorState.entity_data_storage[map_en[0]] = (map_en[1], map.load_en_param_types(map_en[2]))
 
 # == editor entity defs ==
 
@@ -285,6 +283,7 @@ def entity_edit_ui(en_name: str):
         if changed_type:
             # handle cleanup and change of the entity type
             new_en_type = EntityTypeRegistry.entity_names[new_en_type_id]
+            en_data = EntityTypeRegistry.entity_types[new_en_type].default_data()
 
             EditorState.entity_data_storage[en_name] = (new_en_type, en_data)
             EditorState.dev_tick_storage.pop(en_name, None) # discard probably uncompatable editor state
@@ -439,6 +438,7 @@ def entity_edit_ui(en_name: str):
 
         if changed_data:
             EditorState.dev_tick_errors.pop(en_name, None)
+            EditorState.has_unsaved_changes = True
 
     else:
         # editor panel closed
@@ -446,17 +446,8 @@ def entity_edit_ui(en_name: str):
 
     imgui.end()
 
-import random
-
 def editor_create_entity():
-    new_en = ("bt_static_mesh", {
-          "t_pos": Vec3([0.0, 0.0, 0.0]),
-          "t_rot": Vec3([0.0, 0.0, 0.0]),
-          "t_scale": Vec3([1.0, 1.0, 1.0]),
-          "a_model_mesh": "models/icosph.npz",
-          "a_model_vshader": "shaders/base_cam.vert",
-          "a_model_fshader": "shaders/unlit.frag",
-        })
+    new_en = ("bt_static_mesh", EntityTypeRegistry.entity_types["bt_static_mesh"].default_data())
     en_name = f"en_new"
 
     if en_name in EditorState.entity_data_storage:

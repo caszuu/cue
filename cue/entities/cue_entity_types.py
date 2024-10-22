@@ -2,6 +2,8 @@ from dataclasses import dataclass
 from typing import Callable, Any
 import pygame as pg
 
+from ..cue_state import GameState
+
 # == Cue Entity Type System ==
 
 # In Cue, objects in a map are called entities. All entities are of one
@@ -16,9 +18,10 @@ import pygame as pg
 #   - the `e` might exist longer than that if references exist to it, but it will no longer be called by the game loop
 #     the entity should call `del` on all rendering objects to properly despawn the entity
 #
-# - dev_tick(s: Any, en_data: dict | None) -> Any - optional but recommended, this special callback will *only* be called while in an editor-like app, will be called every frame
+# - dev_tick(s: Any, dev_state: dict, en_data: dict | None) -> Any - optional but recommended, this special callback will *only* be called while in an editor-like app, will be called every frame
 #   - the `s` param will be the same value as the return value from last frame, if this is the first call it will be None
 #     you can use this to keep a state between frames as `spawn` will *never* be called in an editor-like app
+#   - the `dev_state` forwards the current state of the entity in the editor (is_selected, etc.)
 #   - the `en_data` param will be filled with the current `entity_data` dict for the entity
 
 # == entity type registry ==
@@ -28,7 +31,8 @@ class EntityType:
     spawn_call: Callable[[dict], Any]
     despawn_call: Callable[[Any], None] | None
 
-    dev_call: Callable[[Any, dict], Any] | None
+    dev_call: Callable[[Any, dict, dict], Any] | None
+    default_data: Callable[[], dict]
 
 class EntityTypeRegistry:
     # entity type metadata storage
@@ -48,7 +52,7 @@ class DevTickError(ValueError):
 
 # == entity type init api ==
 
-def create_entity_type(entity_type_name: str, spawn: Callable[[dict], Any], despawn: Callable[[Any], None] | None, dev: Callable[[Any, dict], Any] | None):
+def create_entity_type(entity_type_name: str, spawn: Callable[[dict], Any], despawn: Callable[[Any], None] | None, dev: Callable[[Any, dict, dict], Any] | None, default_en_data: Callable[[], dict]):
     # validate type
     
     if entity_type_name in EntityTypeRegistry.entity_types:
@@ -59,7 +63,7 @@ def create_entity_type(entity_type_name: str, spawn: Callable[[dict], Any], desp
 
     # add to registry
 
-    et = EntityType(spawn, despawn, dev)
+    et = EntityType(spawn, despawn, dev, default_en_data)
     EntityTypeRegistry.entity_types[entity_type_name] = et
     EntityTypeRegistry.entity_names.append(entity_type_name)
 

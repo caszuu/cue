@@ -26,38 +26,53 @@ from pygame.math import Vector3 as Vec3, Vector2 as Vec2
 #             "bt_model_dynamic",
 #         ],
 #         "asset_list": [ // assets which are used in this map file, should be loaded while in a loading screen
-#             "assets/models/big_door.pkl",
+#             "assets/models/big_door.npz",
 #         ]
 #     },
 #     "cmf_data": {
 #         "map_entities": [
-#             {
-#                 "en_name": "pt_main_door",
-#                 "en_type": "bt_model_static",
-#                 "en_data": {
-#                     "trans_pos": [0, 1, 2],
-#                     "trans_rot": [.561, .210, .135],
+#             [
+#                 "pt_main_door",
+#                 "bt_model_static",
+#                 {
+#                     "vec3://t_pos": [0, 1, 2], // a entity data field with a type hint, will be casted on load
+#                     "vec3://t_rot": [.561, .210, .135],
 #                     "start_open": true,
 #                     "model_asset": "str:assets/models/big_door.pkl",
 #                 }
-#             },
-#             {
-#                 "en_name": "pt_second_door",
-#                 "en_type": "bt_model_static",
-#                 "en_data": {
-#                     "trans_pos": [0, 1, 2],
-#                     "trans_rot": [.561, .210, .135],
+#             ],
+#             [
+#                 "pt_second_door",
+#                 "bt_model_static",
+#                 {
+#                     "vec3://t_pos": [0, 1, 2],
+#                     "vec3://t_rot": [.561, .210, .135],
 #                     "start_open": 1,
 #                     "model_asset": null,
 #                 }
-#             }
+#             ]
 #         ]
 #     }
 # }
 
 # == Map Parser ==
 
-MAP_LOADER_VERSION = 1
+MAP_LOADER_VERSION = 2
+
+def load_en_param_types(en_data: dict) -> dict:
+    params = {}
+
+    for pn, p in en_data.items():
+        if pn.startswith("vec2://"):
+            params[pn[7:]] = Vec2(p)
+        
+        elif pn.startswith("vec3://"):
+            params[pn[7:]] = Vec3(p)
+        
+        else:
+            params[pn] = p
+
+    return params
 
 # loads and parses a map file into EntityStorage and AssetManager, this function should be called within a "loading screen" context
 def load_map(file_path: str) -> None:    
@@ -83,7 +98,7 @@ def load_map(file_path: str) -> None:
         # GameState.asset_manager.preload(map_file["cmf_header"]["asset_list"])
 
         for e in map_file["cmf_data"]["map_entities"]:
-            GameState.entity_storage.spawn(e[1], e[0], e[2])
+            GameState.entity_storage.spawn(e[1], e[0], load_en_param_types(e[2]))
 
     except KeyError:
         raise ValueError("corrupted map file, missing json fields")
@@ -121,8 +136,19 @@ def compile_map(file_path: str, entity_export: dict[str, tuple[str, dict]]):
     entities = []
 
     for name, e in entity_export.items():
-        params = copy.deepcopy(e[1]) # deepcopy to avoid modifying the source `entity_export`
-        entities.append((name, e[0], e[1]))
+        params = {}
+
+        for pn, p in e[1].items():
+            if isinstance(p, Vec2):
+                params[f"vec2://{pn}"] = (p.x, p.y)
+
+            elif isinstance(p, Vec3):
+                params[f"vec3://{pn}"] = (p.x, p.y, p.z)
+            
+            else:
+                params[pn] = p
+
+        entities.append((name, e[0], params))
 
     # dump the final json
 

@@ -27,9 +27,6 @@ class BtStaticMesh:
 def spawn_static_mesh(en_data: dict) -> BtStaticMesh:
     return BtStaticMesh(en_data)
 
-def despawn_static_mesh(en: BtStaticMesh) -> None:
-    en.despawn()
-
 # since BtStaticMesh is already static, we can simply use it directly instead of faking it for the editor
 def dev_static_mesh(s: dict | None, en_data: dict) -> dict:
     if s is None:
@@ -43,5 +40,15 @@ def dev_static_mesh(s: dict | None, en_data: dict) -> dict:
 
     return s
 
-en.create_entity_type("bt_static_mesh", spawn_static_mesh, despawn_static_mesh, dev_static_mesh)
+def gen_def_data():
+    return {
+        "t_pos": Vec3([0.0, 0.0, 0.0]),
+        "t_rot": Vec3([0.0, 0.0, 0.0]),
+        "t_scale": Vec3([1.0, 1.0, 1.0]),
+        "a_model_mesh": "models/icosph.npz",
+        "a_model_vshader": "shaders/base_cam.vert",
+        "a_model_fshader": "shaders/basic_lit.frag",
+    }
+
+en.create_entity_type("bt_static_mesh", spawn_static_mesh, BtStaticMesh.despawn, dev_static_mesh, gen_def_data)
 
