@@ -66,3 +66,18 @@ def mat4_rotate(angle: float, axis: tuple[float, float, float]) -> np.ndarray:
         [nc * x * z - s * y, nc * y * z + s * x, nc * (z ** 2) + c, 0],
         [0, 0, 0, 1],
     ], dtype=np.float32)
+
+# == dev utils ==
+
+import imgui
+
+# a imgui.begin helper that will add "overlay-like" attribs, can be used inplace of a imgui.begin
+def begin_dev_overlay(id: str, flags: int = 0):
+    overlay_flags = imgui.WINDOW_NO_DECORATION | imgui.WINDOW_ALWAYS_AUTO_RESIZE | imgui.WINDOW_NO_SAVED_SETTINGS | imgui.WINDOW_NO_FOCUS_ON_APPEARING | imgui.WINDOW_NO_NAV | imgui.WINDOW_NO_MOVE
+    pad = 10
+
+    viewport = imgui.get_main_viewport()
+    imgui.set_next_window_position(viewport.work_pos.x + pad, viewport.work_pos.y + pad)
+    imgui.set_next_window_bg_alpha(.35)
+
+    return imgui.begin(id, flags=overlay_flags | flags)
