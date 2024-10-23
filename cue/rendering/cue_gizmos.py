@@ -2,7 +2,7 @@ from typing import Any
 import ctypes
 import os
 
-import pygame.math as pm
+from pygame.math import Vector3 as Vec3, Vector2 as Vec2
 import numpy as np
 
 import OpenGL.GL as gl
@@ -27,9 +27,28 @@ GIZMO_VERT_SIZE = np.dtype('float32').itemsize * 3 * 2
 
 # == gizmo api ==
 
-def draw_line(pos1: pm.Vector3, pos2: pm.Vector3, col1: pm.Vector3 = pm.Vector3(1, 1, 1), col2: pm.Vector3 = pm.Vector3(1, 1, 1)) -> None:
+def draw_line(pos1: Vec3, pos2: Vec3, col1: Vec3 = Vec3(1, 1, 1), col2: Vec3 = Vec3(1, 1, 1)) -> None:
     CueGizmos.draw_stack.append((0, np.array([*pos1, *col1, *pos2, *col2], dtype=np.float32)))
     CueGizmos.draw_stack_byte_size += GIZMO_VERT_SIZE * 2
+
+def draw_box(min_p: Vec3, max_p: Vec3, line_col: Vec3) -> None:
+    # min x edges
+    draw_line(min_p, Vec3(min_p.x, min_p.y, max_p.z), line_col, line_col)
+    draw_line(Vec3(min_p.x, min_p.y, max_p.z), Vec3(min_p.x, max_p.y, max_p.z), line_col, line_col)
+    draw_line(Vec3(min_p.x, max_p.y, max_p.z), Vec3(min_p.x, max_p.y, min_p.z), line_col, line_col)
+    draw_line(Vec3(min_p.x, max_p.y, min_p.z), min_p, line_col, line_col)
+
+    # max x edges
+    draw_line(Vec3(max_p.x, min_p.y, min_p.z), Vec3(max_p.x, min_p.y, max_p.z), line_col, line_col)
+    draw_line(Vec3(max_p.x, min_p.y, max_p.z), Vec3(max_p.x, max_p.y, max_p.z), line_col, line_col)
+    draw_line(Vec3(max_p.x, max_p.y, max_p.z), Vec3(max_p.x, max_p.y, min_p.z), line_col, line_col)
+    draw_line(Vec3(max_p.x, max_p.y, min_p.z), Vec3(max_p.x, min_p.y, min_p.z), line_col, line_col)
+
+    # rest
+    draw_line(Vec3(min_p.x, min_p.y, min_p.z), Vec3(max_p.x, min_p.y, min_p.z), line_col, line_col)
+    draw_line(Vec3(min_p.x, max_p.y, min_p.z), Vec3(max_p.x, max_p.y, min_p.z), line_col, line_col)
+    draw_line(Vec3(min_p.x, min_p.y, max_p.z), Vec3(max_p.x, min_p.y, max_p.z), line_col, line_col)
+    draw_line(Vec3(min_p.x, max_p.y, max_p.z), Vec3(max_p.x, max_p.y, max_p.z), line_col, line_col)
 
 # TODO: more gizmos if required
 

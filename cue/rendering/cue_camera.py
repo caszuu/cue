@@ -1,4 +1,5 @@
 import pygame.math as pm
+import pygame as pg
 import numpy as np
 import OpenGL.GL as gl
 import imgui
@@ -9,6 +10,8 @@ from dataclasses import dataclass
 
 from ..im2d.imgui_integ import CueImguiContext
 from .. import cue_utils as utils
+
+from .. import cue_sequence as seq
 
 # note: non-cycle-causing import only for type hints
 from . import cue_scene as sc
@@ -33,6 +36,8 @@ class Camera:
         self.cam_clear_bits = gl.GL_COLOR_BUFFER_BIT | gl.GL_DEPTH_BUFFER_BIT
         self.cam_clear_color = (0., 0., 0., 0.)
         self.cam_clear_depth = 1.
+
+        seq.on_event(pg.VIDEORESIZE, self._re_aspect)
 
     def __del__(self) -> None:
         gl.glDeleteBuffers(1, np.array([self.cam_ubo]))
@@ -72,20 +77,26 @@ class Camera:
         ], dtype=np.float32)
 
     # change the aspect without changing any other settings
-    def re_aspect(self, aspect: float) -> None:
+    def _re_aspect(self, e) -> None:
         if self.cam_fov is None:
             return # orthographic doesn't rely on aspect ratio (maybe a TODO?)
 
-        self.set_perspective(aspect, self.cam_fov, self.cam_near_plane, self.cam_far_plane)
+        self.set_perspective(e.dict["w"] / e.dict["h"], self.cam_fov, self.cam_near_plane, self.cam_far_plane)
+        self.set_view(self.cam_pos, self.cam_rot)
+
+        seq.on_event(pg.VIDEORESIZE, self._re_aspect)
 
     def set_view(self, pos: pm.Vector3, rot: pm.Vector3) -> None:
         self.cam_view_proj_matrix = (
             self.cam_proj_mat @
-            utils.mat4_rotate(rot.x, (1., 0., 0.)) @
-            utils.mat4_rotate(rot.y, (0., -1., 0.)) @
-            utils.mat4_rotate(rot.z, (0., 0., 1.)) @
+            utils.mat4_rotate(math.radians(rot.x), (1., 0., 0.)) @
+            utils.mat4_rotate(math.radians(rot.y), (0., -1., 0.)) @
+            utils.mat4_rotate(math.radians(rot.z), (0., 0., 1.)) @
             utils.mat4_translate(-pos)
         )
+
+        self.cam_pos = pos
+        self.cam_rot = rot
 
         gl.glBindBuffer(gl.GL_UNIFORM_BUFFER, self.cam_ubo)
         gl.glBufferSubData(gl.GL_UNIFORM_BUFFER, 0, np.transpose(self.cam_view_proj_matrix).flatten())

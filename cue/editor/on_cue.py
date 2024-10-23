@@ -144,10 +144,10 @@ def editor_new_map():
     
     reset_editor_ui()
     
-    GameState.active_camera = Camera(GameState.renderer.win_aspect, 70)
-    GameState.active_scene = RenderScene()
     GameState.entity_storage.reset()
     GameState.sequencer = CueSequencer(time.perf_counter()) # to del all scheduled seqs
+    GameState.active_scene = RenderScene()
+    GameState.active_camera = Camera(GameState.renderer.win_aspect, 70)
 
     EditorState.editor_freecam = FreecamController(GameState.active_camera)
 
@@ -815,9 +815,6 @@ def start_editor():
                 if e.type == pg.MOUSEMOTION:
                     EditorState.ui_ctx.set_mouse_input(e.pos)
 
-                elif e.type == pg.VIDEORESIZE:
-                    GameState.active_camera.re_aspect(GameState.renderer.win_aspect)
-
                 elif e.type == pg.QUIT:
                     should_exit = True
 
@@ -849,10 +846,11 @@ def start_editor():
                 if name in EditorState.dev_tick_errors:
                     continue # do not waste time ticking erroneous entities
                 
-                dev_state = EditorState.dev_tick_storage.get(name, None)
+                entity_state = EditorState.dev_tick_storage.get(name, None)
+                dev_state = {"is_selected": name == EditorState.selected_entity}
 
                 try:
-                    EditorState.dev_tick_storage[name] = EntityTypeRegistry.dev_types[en[0]](dev_state, en[1])
+                    EditorState.dev_tick_storage[name] = EntityTypeRegistry.dev_types[en[0]](entity_state, dev_state, en[1])
                 
                 except DevTickError as e:
                     EditorState.dev_tick_errors[name] = f"validation error: {e}\n{traceback.format_exc()}"
@@ -862,7 +860,7 @@ def start_editor():
                     EditorState.dev_tick_errors[name] = f"{type(e)} exception raised in dev tick: {e}\n{traceback.format_exc()}"
                     EditorState.dev_tick_storage.pop(name, None) # discard possibly unusable editor state
 
-                del dev_state # delete the ref, so it might get cleaned up if deleted (causes issued if it's the last entity in the map)
+                del entity_state # delete the ref, so it might get cleaned up if deleted (causes issued if it's the last entity in the map)
 
             tt = time.perf_counter() - t
 

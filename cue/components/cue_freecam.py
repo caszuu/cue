@@ -13,7 +13,7 @@ from .. import cue_sequence as seq
 
 class FreecamController:
     free_accel: float = 20
-    free_mouse_accel: float = math.radians(.2) # contain deg to rad conversion with the accel config
+    free_mouse_accel: float = .2
     free_friction: float = 10
 
     free_vel: pm.Vector3
@@ -35,6 +35,9 @@ class FreecamController:
 
     def tick(self) -> None:
         yaw_rot, pitch_rot = self.free_rot.yx
+        yaw_rot = math.radians(yaw_rot)
+        pitch_rot = math.radians(pitch_rot)
+
         keys = pg.key.get_pressed()
         rel = pg.mouse.get_rel()
         dt = GameState.delta_time

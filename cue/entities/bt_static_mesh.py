@@ -1,7 +1,6 @@
 from dataclasses import dataclass
 from . import cue_entity_types as en
 
-from ..cue_state import GameState
 from ..components.cue_transform import Transform
 from ..components.cue_model import ModelRenderer
 
@@ -28,7 +27,7 @@ def spawn_static_mesh(en_data: dict) -> BtStaticMesh:
     return BtStaticMesh(en_data)
 
 # since BtStaticMesh is already static, we can simply use it directly instead of faking it for the editor
-def dev_static_mesh(s: dict | None, en_data: dict) -> dict:
+def dev_static_mesh(s: dict | None, dev_state: dict, en_data: dict) -> dict:
     if s is None:
         # init mesh
         s = {"mesh": BtStaticMesh(en_data), "en_data": dict(en_data)}
