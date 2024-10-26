@@ -175,8 +175,9 @@ def editor_save_map(path: str | None) -> None:
 
     EditorState.has_unsaved_changes = False
 
-def editor_load_map() -> None:
-    path = filedialpy.openFile(title="Open map file", filter=["*.json"])
+def editor_load_map(path: str | None = None) -> None:
+    if path is None:
+        path = filedialpy.openFile(title="Open map file", filter=["*.json"])
 
     if not path: # cancel
         return
@@ -212,6 +213,9 @@ def editor_load_map() -> None:
 
     for map_en in map_file["cmf_data"]["map_entities"]:
         EditorState.entity_data_storage[map_en[0]] = (map_en[1], map.load_en_param_types(map_en[2]))
+
+# override the engine's map loading to the editor stub
+map.load_map = editor_load_map
 
 # == editor entity defs ==
 
@@ -278,6 +282,7 @@ def entity_edit_ui(en_name: str):
 
         if changed_name:
             if handle_entity_rename(en_name, new_en_name):
+                EditorState.has_unsaved_changes = True
                 en_name = new_en_name
 
         if changed_type:
@@ -288,6 +293,7 @@ def entity_edit_ui(en_name: str):
             EditorState.entity_data_storage[en_name] = (new_en_type, en_data)
             EditorState.dev_tick_storage.pop(en_name, None) # discard probably uncompatable editor state
 
+            EditorState.has_unsaved_changes = True
             en_type = new_en_type
 
         imgui.separator()

@@ -4,6 +4,7 @@ import numpy as np
 from typing import Any
 
 from .rendering.cue_resources import GPUMesh, GPUTexture, ShaderPipeline
+from . import cue_utils as utils
 
 # == Cue Asset Manager ==
 
@@ -17,9 +18,10 @@ class AssetTypes:
 class AssetManager:
     def __init__(self, asset_dir: str) -> None:
         self.asset_dir = asset_dir
-        self.reset()
+        self.asset_cache = {}
 
     def reset(self) -> None:
+        utils.info(f"[asset_mgr] flushed {len(self.asset_cache)} loaded assets from cache")
         self.asset_cache = {}
 
     def preload(self, path: str, type_hint: str | None = None) -> None:

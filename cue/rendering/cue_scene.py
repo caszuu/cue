@@ -1,4 +1,6 @@
+from dataclasses import dataclass
 import OpenGL.GL as gl
+import numpy as np
 
 from .cue_resources import ShaderPipeline
 from .cue_batch import DrawBatch
@@ -8,10 +10,12 @@ from . import cue_target as tar
 
 # an ordered collection of rendering batches, usually represents a "scene"
 
+@dataclass(init=False, slots=True)
 class RenderScene:
-    # __slots__ = []
-    
     def __init__(self):
+        self.reset()
+
+    def reset(self) -> None:
         self.attached_opaque_batches = {}
         self.attached_non_opaque_batches = {}
 
@@ -83,18 +87,18 @@ class RenderScene:
 
     attached_opaque_batches: dict[
         tuple[
-            gl.GLuint,      # draw_vao
+            np.uint32,      # draw_vao
             ShaderPipeline, # draw_pipeline
         ],
-        dict[DrawBatch] # key only
+        dict[DrawBatch, None] # key only
     ]
 
     attached_non_opaque_batches: dict[
         tuple[
-            gl.GLuint,      # draw_vao
+            np.uint32,      # draw_vao
             ShaderPipeline, # draw_pipeline
         ],
-        dict[DrawBatch] # key only
+        dict[DrawBatch, None] # key only
     ]
 
     attached_render_targets: dict['tar.RenderTarget', int] # key: render target, value: ref count

@@ -1,6 +1,4 @@
 import json
-import copy
-import os
 from typing import Any
 
 from .cue_state import GameState
@@ -59,6 +57,19 @@ from pygame.math import Vector3 as Vec3, Vector2 as Vec2
 
 MAP_LOADER_VERSION = 2
 
+import time
+
+def reset_map() -> None:
+    GameState.entity_storage.reset()
+    GameState.sequencer.reset(time.perf_counter())
+
+    GameState.asset_manager.reset()
+    
+    GameState.active_scene.reset()
+
+    if hasattr(GameState, "active_camera"):
+        del GameState.active_camera
+
 def load_en_param_types(en_data: dict) -> dict:
     params = {}
 
@@ -81,7 +92,7 @@ def load_map(file_path: str) -> None:
     with open(file_path, 'r') as f:
         map_file = json.load(f)
 
-    GameState.entity_storage.reset()
+    reset_map()
 
     try:
         # validate map

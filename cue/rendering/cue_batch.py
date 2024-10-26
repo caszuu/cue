@@ -43,6 +43,7 @@ class DrawBatch:
         gl.glDrawArrays(gl.GL_TRIANGLES, 0, self.draw_count)
 
     mesh_vao: np.uint32
+    has_elements: bool
 
     model_mat_loc: int
     model_transform: Transform | None
@@ -51,4 +52,4 @@ class DrawBatch:
     draw_state: tuple[np.uint32, ShaderPipeline]
 
     # draw_count will mostly be the same as mesh.vertex_count, but can differ (eg. with vertex shaders generation their own data)
-    draw_count: np.uint32
+    draw_count: int

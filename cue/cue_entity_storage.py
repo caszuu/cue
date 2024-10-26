@@ -13,8 +13,10 @@ class EntityStorage:
 
     def reset(self) -> None:
         for en in self.entity_storage:
-            en_despawn = EntityTypeRegistry.despawn_types[en[0]]
+            en_despawn = EntityTypeRegistry.despawn_types.get(en[0], lambda e: None)
             en_despawn(en)
+        
+        self.entity_storage = {}
 
     # == entity api ==
 
