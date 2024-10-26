@@ -1,4 +1,4 @@
-import os, sys, time, pickle, json, traceback
+import os, sys, time, pickle, json, traceback, copy
 from typing import Callable, Any
 
 import pygame as pg, pygame.math as pm
@@ -13,7 +13,7 @@ from ..cue_state import GameState
 from ..cue_assets import AssetManager
 from ..cue_sequence import CueSequencer
 from ..cue_entity_storage import EntityStorage
-from ..entities.cue_entity_types import DevTickError, EntityTypeRegistry
+from ..entities.cue_entity_types import EntityTypeRegistry
 
 from ..rendering.cue_renderer import CueRenderer
 from ..rendering.cue_camera import Camera
@@ -43,6 +43,26 @@ class EditorState:
     editor_freecam: FreecamController
     
     error_msg: str | None = None
+
+    # mode enum:
+    #  0 - normal / none
+    #  1 - move (key g)
+    #  -1 - undo move
+    #  2 - rotate (key r)
+    #  -2 - undo rotate
+    #  3 - scale (key f)
+    #  -3 - undo scale
+    edit_mode: int = 0
+
+    # initial mouse position on edit mode change
+    edit_mode_initial_mouse: tuple[int, int] | None = None
+
+    # axis mode enum:
+    #  0 - no axis / free
+    #  1 - x axis
+    #  2 - y axis
+    #  3 - z axis
+    edit_mode_axis: int = 0
 
     # == ui state ==
 
@@ -81,6 +101,7 @@ class EditorState:
 
     # currently editor-wide selected entity
     selected_entity: str | None = None
+    focus_selected_entity: bool = False
 
     # entities currently with a editor panel open, don't have to be selected
     entities_in_editing: set[str] = set()
@@ -271,10 +292,14 @@ def entity_edit_ui(en_name: str):
             imgui.end()
             return # unless we return here, imgui crashes
 
-        # entity header
+        if EditorState.focus_selected_entity and EditorState.selected_entity == en_name:
+            imgui.set_window_focus()
+            EditorState.focus_selected_entity = False
 
         if imgui.is_window_focused():
             EditorState.selected_entity = en_name
+
+        # entity header
 
         en_type, en_data = EditorState.entity_data_storage[en_name]
 
@@ -375,8 +400,6 @@ def entity_edit_ui(en_name: str):
         if imgui.is_item_hovered():
             imgui.begin_tooltip()
             imgui.text("Adds a new prop to entity props.")
-            imgui.same_line()
-            imgui.text_colored("(Shift+A)", .5, .5, .5, 1.)
             imgui.end_tooltip()
 
         # delete button
@@ -387,9 +410,7 @@ def entity_edit_ui(en_name: str):
 
         if imgui.is_item_hovered():
             imgui.begin_tooltip()
-            imgui.text("Adds a new prop to entity props.")
-            imgui.same_line()
-            imgui.text_colored("(Shift+A)", .5, .5, .5, 1.)
+            imgui.text("Deletes a prop from entity props.")
             imgui.end_tooltip()
         
         imgui.unindent()
@@ -455,20 +476,48 @@ def entity_edit_ui(en_name: str):
 
     imgui.end()
 
-def editor_create_entity():
-    new_en = ("bt_static_mesh", EntityTypeRegistry.entity_types["bt_static_mesh"].default_data())
-    en_name = f"en_new"
-
+def get_new_entity_name(initial_name: str = "new_entity") -> str:
+    en_name = initial_name
+    
     if en_name in EditorState.entity_data_storage:
+        stripped_name = initial_name.strip("0123456789")
+        
+        if stripped_name.endswith("_"):
+            stripped_name = stripped_name[:-1]
+        else:
+            stripped_name = initial_name
+
         i = 0
         while True:
-            en_name = f"en_new_{i}"
+            en_name = f"{stripped_name}_{i}"
             if not en_name in EditorState.entity_data_storage:
                 break
 
             i += 1
+    
+    return en_name
+
+def editor_create_entity():
+    new_en = ("bt_static_mesh", EntityTypeRegistry.entity_types["bt_static_mesh"].default_data())
+    en_name = get_new_entity_name()
 
     EditorState.has_unsaved_changes = True
+
+    EditorState.entity_data_storage[en_name] = new_en
+    EditorState.selected_entity = en_name
+
+    # immidatelly open an editor for the entity
+    EditorState.entities_in_editing.add(en_name)
+
+def editor_duplicate_entity():
+    if EditorState.selected_entity is None:
+        return
+
+    EditorState.has_unsaved_changes = True
+    orig_en = EditorState.entity_data_storage[EditorState.selected_entity]
+
+    new_en = (orig_en[0], copy.deepcopy(orig_en[1]))
+    en_name = get_new_entity_name(EditorState.selected_entity)
 
     EditorState.entity_data_storage[en_name] = new_en
     EditorState.selected_entity = en_name
@@ -499,7 +548,7 @@ def entity_tree_ui():
         if imgui.is_item_hovered():
             imgui.begin_tooltip()
             imgui.text("Create an entity"); imgui.same_line()
-            imgui.text_colored("(Ctrl+a)", .5, .5, .5, 1.)
+            # imgui.text_colored("(Ctrl+a)", .5, .5, .5, 1.)
             imgui.end_tooltip()
 
         imgui.same_line()
@@ -508,13 +557,24 @@ def entity_tree_ui():
         if imgui.is_item_hovered():
             imgui.begin_tooltip()
             imgui.text("Delete an entity"); imgui.same_line()
-            imgui.text_colored("(Ctrl+Del)", .5, .5, .5, 1.)
+            # imgui.text_colored("(Ctrl+Del)", .5, .5, .5, 1.)
             imgui.end_tooltip()
 
         imgui.same_line()
 
+        dup_en = imgui.button("d")
+        if imgui.is_item_hovered():
+            imgui.begin_tooltip()
+            imgui.text("Duplicate an entity"); imgui.same_line()
+            # imgui.text_colored("(Ctrl+d)", .5, .5, .5, 1.)
+            imgui.end_tooltip()
+
+        imgui.same_line()
+
+        imgui.push_item_width(imgui.get_content_region_available()[0] * .8)
         _, EditorState.entity_tree_filter = imgui.input_text("filter", value=EditorState.entity_tree_filter)
         filter_state = EditorState.entity_tree_filter
+        imgui.pop_item_width()
 
         next_in_filter: str | None = None
         last_was_selected: bool = False
@@ -531,6 +591,7 @@ def entity_tree_ui():
                 clicked, selected = imgui.selectable(name, selected=EditorState.selected_entity == name)
                 if clicked:
                     EditorState.selected_entity = name if selected else None
+                    EditorState.focus_selected_entity = True
                 
                 if has_error:
                     imgui.pop_style_color()
@@ -556,6 +617,9 @@ def entity_tree_ui():
         
         if del_en:
             editor_delete_entity(next_in_filter)
+
+        if dup_en:
+            editor_duplicate_entity()
 
 # == editor asset importer ==
 
@@ -673,6 +737,40 @@ def model_import_ui() -> None:
                 imgui.end_tab_item()
 
 # == ui defs ==
+
+def edit_mode_capture_keybinds(e) -> bool:
+    if e.type == pg.KEYDOWN and e.dict['key'] == pg.K_ESCAPE:
+        EditorState.edit_mode = -EditorState.edit_mode
+        EditorState.edit_mode_initial_mouse = None
+        EditorState.edit_mode_axis = 0
+        return True
+    elif (e.type == pg.KEYDOWN and e.dict['key'] == pg.K_RETURN) or (e.type == pg.MOUSEBUTTONDOWN and e.dict['button'] == 1):
+        EditorState.edit_mode = 0
+        EditorState.edit_mode_initial_mouse = None
+        EditorState.edit_mode_axis = 0
+        return True
+    
+    elif e.type == pg.KEYDOWN and e.dict['key'] == pg.K_g:
+        EditorState.edit_mode = 1
+        EditorState.edit_mode_initial_mouse = pg.mouse.get_pos()
+        return True
+    elif e.type == pg.KEYDOWN and e.dict['key'] == pg.K_r:
+        EditorState.edit_mode = 2
+        EditorState.edit_mode_initial_mouse = pg.mouse.get_pos()
+        return True
+    elif e.type == pg.KEYDOWN and e.dict['key'] == pg.K_f:
+        EditorState.edit_mode = 3
+        EditorState.edit_mode_initial_mouse = pg.mouse.get_pos()
+        return True
+
+    elif e.type == pg.KEYDOWN and e.dict['key'] == pg.K_x:
+        EditorState.edit_mode_axis = 1
+    elif e.type == pg.KEYDOWN and e.dict['key'] == pg.K_y:
+        EditorState.edit_mode_axis = 2
+    elif e.type == pg.KEYDOWN and e.dict['key'] == pg.K_z:
+        EditorState.edit_mode_axis = 3
+
+    return False
 
 # this is the `main` editor func where we dispatch work based on user's input
 def editor_process_ui():
@@ -802,15 +900,19 @@ def start_editor():
             # == event poll ==
 
             should_exit = False
+            edit_mode_changed = False
 
             for e in pg.event.get():
                 EditorState.ui_ctx.process_key_event(e)
-
+                
                 if e.type == pg.MOUSEMOTION:
                     EditorState.ui_ctx.set_mouse_input(e.pos)
 
                 elif e.type == pg.QUIT:
                     should_exit = True
+
+                # capture edit mode keybinds
+                edit_mode_changed |= edit_mode_capture_keybinds(e)
 
                 GameState.sequencer.send_event_id(e.type, e)
                 GameState.static_sequencer.send_event_id(e.type, e)
@@ -836,19 +938,31 @@ def start_editor():
             editor_process_ui()
 
             # perform dev/editor ticks
+
+            dev_state = {
+                "is_selected": None,
+                "edit_mode": (
+                    EditorState.edit_mode,
+                    edit_mode_changed,
+                    (pg.mouse.get_pos()[0] - EditorState.edit_mode_initial_mouse[0], -(pg.mouse.get_pos()[1] - EditorState.edit_mode_initial_mouse[1])) if EditorState.edit_mode_initial_mouse is not None else None,
+                    EditorState.edit_mode_axis,
+                ),
+                "editor_cam_pos": EditorState.editor_freecam.free_pos,
+                "editor_cam_forward": EditorState.editor_freecam.free_forward,
+                "editor_cam_right": EditorState.editor_freecam.free_right_flat,
+                "editor_cam_up": EditorState.editor_freecam.free_up,
+                "suggested_initial_pos": EditorState.editor_freecam.free_pos + (EditorState.editor_freecam.free_forward * 2.),
+            }
+
             for name, en in EditorState.entity_data_storage.items():
                 if name in EditorState.dev_tick_errors:
                     continue # do not waste time ticking erroneous entities
                 
                 entity_state = EditorState.dev_tick_storage.get(name, None)
-                dev_state = {"is_selected": name == EditorState.selected_entity}
+                dev_state['is_selected'] = name == EditorState.selected_entity
 
                 try:
                     EditorState.dev_tick_storage[name] = EntityTypeRegistry.dev_types[en[0]](entity_state, dev_state, en[1])
-                
-                except DevTickError as e:
-                    EditorState.dev_tick_errors[name] = f"validation error: {e}\n{traceback.format_exc()}"
-                    EditorState.dev_tick_storage.pop(name, None) # discard possibly unusable editor state
 
                 except Exception as e:
                     EditorState.dev_tick_errors[name] = f"{type(e)} exception raised in dev tick: {e}\n{traceback.format_exc()}"

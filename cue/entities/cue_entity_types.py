@@ -46,10 +46,6 @@ class EntityTypeRegistry:
 
     dev_types: dict[str, Callable] = {}
 
-# used by dev ticks to signal entity data validation errors
-class DevTickError(ValueError):
-    pass
-
 # == entity type init api ==
 
 def create_entity_type(entity_type_name: str, spawn: Callable[[dict], Any], despawn: Callable[[Any], None] | None, dev: Callable[[Any, dict, dict], Any] | None, default_en_data: Callable[[], dict]):

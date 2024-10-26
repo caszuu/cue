@@ -20,6 +20,10 @@ class FreecamController:
     free_pos: pm.Vector3
     free_rot: pm.Vector3
 
+    free_forward: pm.Vector3
+    free_right_flat: pm.Vector3
+    free_up: pm.Vector3
+
     controlled_camera: Camera
     is_captured: bool
 
@@ -27,6 +31,10 @@ class FreecamController:
         self.free_vel = pm.Vector3(0, 0, 0)
         self.free_pos = pm.Vector3(0, 0, 0)
         self.free_rot = pm.Vector3(0, 0, 0)
+
+        self.free_forward = pm.Vector3(0, 0, -1)
+        self.free_right_flat = pm.Vector3(1, 0, 0)
+        self.free_up = pm.Vector3(0, 1, 0)
 
         self.controlled_camera = cam
         self.is_captured = False
@@ -45,17 +53,18 @@ class FreecamController:
         self.free_vel /= 1. + (FreecamController.free_friction * dt)
 
         if self.is_captured:
-            forward_vec = pm.Vector3(math.sin(yaw_rot) * math.cos(pitch_rot), math.sin(pitch_rot), math.cos(yaw_rot) * math.cos(pitch_rot)) * -1
-            right_vec = pm.Vector3(-forward_vec.z, 0., forward_vec.x)
+            self.free_forward = pm.Vector3(math.sin(yaw_rot) * math.cos(pitch_rot), math.sin(pitch_rot), math.cos(yaw_rot) * math.cos(pitch_rot)) * -1
+            self.free_up = pm.Vector3(math.sin(yaw_rot) * math.sin(pitch_rot), -math.cos(pitch_rot), math.cos(yaw_rot) * math.sin(pitch_rot)) * -1
+            self.free_right_flat = pm.Vector3(-self.free_forward.z, 0., self.free_forward.x)
 
             if keys[pg.K_w]:
-                self.free_vel += forward_vec * FreecamController.free_accel * dt
+                self.free_vel += self.free_forward * FreecamController.free_accel * dt
             if keys[pg.K_s]:
-                self.free_vel -= forward_vec * FreecamController.free_accel * dt
+                self.free_vel -= self.free_forward * FreecamController.free_accel * dt
             if keys[pg.K_d]:
-                self.free_vel += right_vec * FreecamController.free_accel * dt
+                self.free_vel += self.free_right_flat * FreecamController.free_accel * dt
             if keys[pg.K_a]:
-                self.free_vel -= right_vec * FreecamController.free_accel * dt
+                self.free_vel -= self.free_right_flat * FreecamController.free_accel * dt
 
             self.free_rot.x += rel[1] * FreecamController.free_mouse_accel
             self.free_rot.y -= rel[0] * FreecamController.free_mouse_accel
