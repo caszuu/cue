@@ -1,5 +1,4 @@
 import sys
-from typing import TypeVar, Generic
 
 # == Cue Utilities ==
 
@@ -9,17 +8,32 @@ warning_escape = f"{bold_escape}\x1b[33m"
 debug_escape = f"{bold_escape}\x1b[94m"
 reset_escape = "\x1b[0m"
 
+debug_col = (.2, .2, .8)
+con_col = (.7, .7, .7)
+warn_col = (.8, .8, .2)
+error_col = (1., .35, .35)
+
+log_buffer: list[tuple[tuple | None, str]] = []
+
 def debug(message: str) -> None:
     print(f"[{debug_escape}debug{reset_escape}] {message}")
+    log_buffer.append((debug_col, f"[debug] {message}"))
+
+def console(cmd: str) -> None:
+    print(f"[{bold_escape}user{reset_escape}] {cmd}")
+    log_buffer.append((con_col, f"[user] {cmd}"))
 
 def info(message: str) -> None:
     print(f"[{bold_escape}info{reset_escape}] {message}")
+    log_buffer.append((None, f"[info] {message}"))
 
 def warn(message: str) -> None:
     print(f"[{warning_escape}warn{reset_escape}] {message}")
+    log_buffer.append((warn_col, f"[warn] {message}"))
 
 def error(message: str) -> None:
     print(f"[{error_escape}error{reset_escape}] {message}")
+    log_buffer.append((error_col, f"[error] {message}"))
 
 def abort(message: str) -> None:
     print(f"[{error_escape}critical{reset_escape}] {message}")
@@ -81,3 +95,89 @@ def begin_dev_overlay(id: str, flags: int = 0):
     imgui.set_next_window_bg_alpha(.35)
 
     return imgui.begin(id, flags=overlay_flags | flags)
+
+from .cue_state import GameState
+from typing import Callable
+
+cmd_buffer: str = ""
+cmd_callbacks: dict[str, Callable[[list[str]], None]] = {}
+
+# a simple developer console, returns if the console is still open
+def show_developer_console() -> bool:
+    global cmd_buffer
+    GameState.renderer.fullscreen_imgui_ctx.set_as_current_context()
+
+    if not imgui.begin("Dev Console", closable=True)[1]:
+        imgui.end()
+        return False
+    
+    # scroll box
+
+    height_reserve = imgui.get_style().item_spacing.y + imgui.get_frame_height_with_spacing()
+    with imgui.begin_child("ScrollBox", height=-height_reserve, border=True, flags=imgui.WINDOW_HORIZONTAL_SCROLLING_BAR):
+        imgui.push_style_var(imgui.STYLE_ITEM_SPACING, (4, 2))
+
+        for line in log_buffer:            
+            if line[0] is not None:
+                imgui.push_style_color(imgui.COLOR_TEXT, *line[0])
+
+            imgui.text_unformatted(line[1])
+
+            if line[0] is not None:
+                imgui.pop_style_color()
+            
+        if imgui.get_scroll_y() >= imgui.get_scroll_max_y():
+            imgui.set_scroll_here_y(1.)
+
+        imgui.pop_style_var()
+
+    imgui.separator()
+
+    # console prompt
+
+    input_flags = imgui.INPUT_TEXT_ENTER_RETURNS_TRUE | imgui.INPUT_TEXT_CALLBACK_COMPLETION | imgui.INPUT_TEXT_CALLBACK_HISTORY
+    enter_input, cmd_buffer = imgui.input_text("Command Input", cmd_buffer, flags=input_flags)
+
+    if enter_input:
+        cmd_parts = cmd_buffer.strip().split(' ')
+
+        cb = cmd_callbacks.get(cmd_parts[0], None)
+        if cb is None:
+            error(f"No command named \"{cmd_parts[0]}\" found")
+        else:
+            console(f"{cmd_buffer}")
+            cb(cmd_parts[1:])
+
+        cmd_buffer = ""
+    
+    imgui.set_item_default_focus()
+    if enter_input:
+        imgui.set_keyboard_focus_here(-1)
+
+    imgui.end()
+    return True
+
+def add_dev_command(cmd: str, cb: Callable[[list[str]], None]):
+    if cmd in cmd_callbacks:
+        raise ValueError(f"The command \"{cmd}\" was already added!")
+    
+    cmd_callbacks[cmd] = cb
+
+def show_perf_overlay():
+    win_flags = imgui.WINDOW_NO_DECORATION | imgui.WINDOW_ALWAYS_AUTO_RESIZE | imgui.WINDOW_NO_SAVED_SETTINGS | imgui.WINDOW_NO_FOCUS_ON_APPEARING | imgui.WINDOW_NO_NAV | imgui.WINDOW_NO_MOVE
+    pad = 10
+
+    viewport = imgui.get_main_viewport()
+    imgui.set_next_window_position(viewport.work_pos.x + pad, viewport.work_pos.y + pad)
+    imgui.set_next_window_bg_alpha(.35)
+
+    with imgui.begin("Perf overlay", flags=win_flags):
+        imgui.text("Performace overlay")
+        imgui.separator()
+
+        imgui.text(f"Frame time: {round(GameState.delta_time * 1000, 2)}ms")
+
+        imgui.spacing(); imgui.spacing()
+
+        imgui.text(f"Tick time: {round(GameState.cpu_tick_time * 1000, 2)}ms")
+        imgui.text(f"Cpu render time: {round(GameState.cpu_render_time * 1000, 2)}ms")

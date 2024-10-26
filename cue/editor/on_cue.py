@@ -21,6 +21,7 @@ from ..rendering.cue_scene import RenderScene
 from ..im2d.imgui_integ import CueImguiContext
 
 from .. import cue_utils as utils
+from .. import cue_cmds
 from ..rendering import cue_resources as res
 from ..rendering import cue_batch as bat
 from ..rendering import cue_gizmos as gizmo
@@ -49,6 +50,8 @@ class EditorState:
     is_perf_overlay_open: bool = False
     is_model_importer_open: bool = False
     is_entity_tree_open: bool = False
+
+    is_dev_con_open: bool = False
 
     on_ensure_saved_success: Callable[[], None] | None = None
     entity_tree_filter: str = ""
@@ -671,25 +674,6 @@ def model_import_ui() -> None:
 
 # == ui defs ==
 
-def perf_overlay():
-    win_flags = imgui.WINDOW_NO_DECORATION | imgui.WINDOW_ALWAYS_AUTO_RESIZE | imgui.WINDOW_NO_SAVED_SETTINGS | imgui.WINDOW_NO_FOCUS_ON_APPEARING | imgui.WINDOW_NO_NAV | imgui.WINDOW_NO_MOVE
-    pad = 10
-
-    viewport = imgui.get_main_viewport()
-    imgui.set_next_window_position(viewport.work_pos.x + pad, viewport.work_pos.y + pad)
-    imgui.set_next_window_bg_alpha(.35)
-
-    with imgui.begin("Perf overlay", flags=win_flags):
-        imgui.text("Performace overlay")
-        imgui.separator()
-
-        imgui.text(f"Frame time: {round(GameState.delta_time * 1000, 2)}ms")
-
-        imgui.spacing(); imgui.spacing()
-
-        imgui.text(f"Tick time: {round(GameState.cpu_tick_time * 1000, 2)}ms")
-        imgui.text(f"Cpu render time: {round(GameState.cpu_render_time * 1000, 2)}ms")
-
 # this is the `main` editor func where we dispatch work based on user's input
 def editor_process_ui():
     EditorState.ui_ctx.set_as_current_context()
@@ -731,6 +715,7 @@ def editor_process_ui():
         if imgui.begin_menu("Tools"):
             _, EditorState.is_entity_tree_open = imgui.menu_item("Entity tree", selected=EditorState.is_entity_tree_open)
             _, EditorState.is_model_importer_open = imgui.menu_item("Model importer", selected=EditorState.is_model_importer_open)
+            _, EditorState.is_dev_con_open = imgui.menu_item("Developer Console", selected=EditorState.is_dev_con_open)
 
             imgui.separator()
 
@@ -756,7 +741,10 @@ def editor_process_ui():
         entity_edit_ui(en)
 
     if EditorState.is_perf_overlay_open:
-        perf_overlay()
+        utils.show_perf_overlay()
+
+    if EditorState.is_dev_con_open:
+        EditorState.is_dev_con_open = utils.show_developer_console()
 
     # == popup modals ==
 
