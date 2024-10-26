@@ -739,6 +739,15 @@ def model_import_ui() -> None:
 # == ui defs ==
 
 def edit_mode_capture_keybinds(e) -> bool:
+    if imgui.is_any_item_active() or EditorState.selected_entity is None:
+        change = EditorState.edit_mode > 0
+
+        EditorState.edit_mode = -EditorState.edit_mode if EditorState.edit_mode > 0 else EditorState.edit_mode
+        EditorState.edit_mode_initial_mouse = None
+        EditorState.edit_mode_axis = 0
+
+        return change
+
     if e.type == pg.KEYDOWN and e.dict['key'] == pg.K_ESCAPE:
         EditorState.edit_mode = -EditorState.edit_mode
         EditorState.edit_mode_initial_mouse = None
@@ -838,11 +847,38 @@ def editor_process_ui():
     for en in list(EditorState.entities_in_editing): # note: doing a copy here, as [entities_in_editing] might change mid iteration 
         entity_edit_ui(en)
 
+    if EditorState.is_dev_con_open:
+        EditorState.is_dev_con_open = utils.show_developer_console()
+
     if EditorState.is_perf_overlay_open:
         utils.show_perf_overlay()
 
-    if EditorState.is_dev_con_open:
-        EditorState.is_dev_con_open = utils.show_developer_console()
+    if EditorState.edit_mode > 0:
+        with utils.begin_dev_overlay("edit_mode_info", 1):
+            imgui.text("Editing Mode")
+            imgui.separator()
+
+            if EditorState.edit_mode == 1:
+                imgui.text("mode: move")
+            elif EditorState.edit_mode == 2:
+                imgui.text("mode: rotate")
+            elif EditorState.edit_mode == 3:
+                imgui.text("mode: scale")
+
+            if EditorState.edit_mode_axis == 0:
+                imgui.text("axis: free")
+            elif EditorState.edit_mode_axis == 1:
+                imgui.text("axis: X")
+            elif EditorState.edit_mode_axis == 2:
+                imgui.text("axis: Y")
+            elif EditorState.edit_mode_axis == 3:
+                imgui.text("axis: Z")
+
+            imgui.spacing(); imgui.spacing()
+
+            imgui.push_style_color(imgui.COLOR_TEXT, .6, .6, .6, 1.)
+            imgui.text("left-click to apply\nescape to cancel")
+            imgui.pop_style_color()
 
     # == popup modals ==
 
@@ -902,6 +938,8 @@ def start_editor():
             should_exit = False
             edit_mode_changed = False
 
+            EditorState.ui_ctx.set_as_current_context()
+
             for e in pg.event.get():
                 EditorState.ui_ctx.process_key_event(e)
                 
@@ -924,7 +962,6 @@ def start_editor():
             dt = time.perf_counter() - t
             t = time.perf_counter()
 
-            EditorState.ui_ctx.set_as_current_context()
             imgui.new_frame()
 
             GameState.delta_time = dt

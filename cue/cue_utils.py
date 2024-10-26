@@ -86,12 +86,15 @@ def mat4_rotate(angle: float, axis: tuple[float, float, float]) -> np.ndarray:
 import imgui
 
 # a imgui.begin helper that will add "overlay-like" attribs, can be used inplace of a imgui.begin
-def begin_dev_overlay(id: str, flags: int = 0):
+def begin_dev_overlay(id: str, corner: int = 0, flags: int = 0):
     overlay_flags = imgui.WINDOW_NO_DECORATION | imgui.WINDOW_ALWAYS_AUTO_RESIZE | imgui.WINDOW_NO_SAVED_SETTINGS | imgui.WINDOW_NO_FOCUS_ON_APPEARING | imgui.WINDOW_NO_NAV | imgui.WINDOW_NO_MOVE
     pad = 10
 
     viewport = imgui.get_main_viewport()
-    imgui.set_next_window_position(viewport.work_pos.x + pad, viewport.work_pos.y + pad)
+    win_pos_x = viewport.work_pos.x + viewport.work_size.x - pad if (corner & 1) else viewport.work_pos.x + pad
+    win_pos_y = viewport.work_pos.y + viewport.work_size.y - pad if (corner & 2) else viewport.work_pos.y + pad
+
+    imgui.set_next_window_position(win_pos_x, win_pos_y, pivot_x=1. if (corner & 1) else 0., pivot_y=1. if (corner & 2) else 0.)
     imgui.set_next_window_bg_alpha(.35)
 
     return imgui.begin(id, flags=overlay_flags | flags)
@@ -163,12 +166,15 @@ def add_dev_command(cmd: str, cb: Callable[[list[str]], None]):
     
     cmd_callbacks[cmd] = cb
 
-def show_perf_overlay():
+def show_perf_overlay(corner: int = 0):
     win_flags = imgui.WINDOW_NO_DECORATION | imgui.WINDOW_ALWAYS_AUTO_RESIZE | imgui.WINDOW_NO_SAVED_SETTINGS | imgui.WINDOW_NO_FOCUS_ON_APPEARING | imgui.WINDOW_NO_NAV | imgui.WINDOW_NO_MOVE
     pad = 10
 
     viewport = imgui.get_main_viewport()
-    imgui.set_next_window_position(viewport.work_pos.x + pad, viewport.work_pos.y + pad)
+    win_pos_x = viewport.work_pos.x + viewport.work_size.x - pad if (corner & 1) else viewport.work_pos.x + pad
+    win_pos_y = viewport.work_pos.y + viewport.work_size.y - pad if (corner & 2) else viewport.work_pos.y + pad
+
+    imgui.set_next_window_position(win_pos_x, win_pos_y, pivot_x=1. if (corner & 1) else 0., pivot_y=1. if (corner & 2) else 0.)
     imgui.set_next_window_bg_alpha(.35)
 
     with imgui.begin("Perf overlay", flags=win_flags):
