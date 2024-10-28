@@ -23,6 +23,8 @@ from ..cue_state import GameState
 #     you can use this to keep a state between frames as `spawn` will *never* be called in an editor-like app
 #   - the `dev_state` forwards the current state of the entity in the editor (is_selected, etc.)
 #   - the `en_data` param will be filled with the current `entity_data` dict for the entity
+# 
+# - default_data() -> dict - always defined, called when creating a new entity in an editor, should return a new copy of default entity parameters 
 
 # == entity type registry ==
 
