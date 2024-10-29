@@ -717,9 +717,9 @@ def model_import_ui() -> None:
                     
                     vert_buf[:] = mesh.vertices.flatten()
                     norm_buf[:] = mesh.normals.flatten()
-                    
+
                     for vi in range(vert_count):
-                        uv_buf[vi:vi + 2] = mesh.texturecoords[0][vi][:2] # only using the first uv coords array, assuming this is correct?
+                        uv_buf[vi * 2:vi * 2 + 2] = mesh.texturecoords[0][vi][:2] # only using the first uv coords array, assuming this is correct?
 
                     # fill elem_buf
                     elem_buf[:] = mesh.faces.flatten()

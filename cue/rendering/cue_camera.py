@@ -103,7 +103,7 @@ class Camera:
 
     # == camera api ==
 
-    def view_frame(self, fb: int, scene: 'sc.RenderScene') -> None:
+    def view_frame(self, fb: np.uint32, scene: 'sc.RenderScene') -> None:
         # == pre-view render targets ==
 
         scene.try_view_deps()
@@ -122,7 +122,7 @@ class Camera:
 
         gl.glClear(self.cam_clear_bits)
 
-        scene.frame()
+        scene.frame(self.cam_view_proj_matrix)
 
         # == imgui/im2d overlays ==
 

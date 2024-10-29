@@ -187,3 +187,7 @@ def show_perf_overlay(corner: int = 0):
 
         imgui.text(f"Tick time: {round(GameState.cpu_tick_time * 1000, 2)}ms")
         imgui.text(f"Cpu render time: {round(GameState.cpu_render_time * 1000, 2)}ms")
+
+        imgui.spacing(); imgui.spacing()
+
+        imgui.text(f"Draw call count: {GameState.renderer.draw_call_count}")

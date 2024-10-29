@@ -34,8 +34,8 @@ class GPUMesh:
 
         # pos
 
+        gl.glBindBuffer(gl.GL_ARRAY_BUFFER, self.mesh_pos_vbo)
         if pos_data is not None:
-            gl.glBindBuffer(gl.GL_ARRAY_BUFFER, self.mesh_pos_vbo)
             gl.glBufferData(gl.GL_ARRAY_BUFFER, pos_data, gl.GL_STATIC_DRAW)
             self.vertex_count = vertex_count
         
@@ -44,8 +44,8 @@ class GPUMesh:
 
         # norm
 
+        gl.glBindBuffer(gl.GL_ARRAY_BUFFER, self.mesh_norm_vbo)
         if norm_data is not None:
-            gl.glBindBuffer(gl.GL_ARRAY_BUFFER, self.mesh_norm_vbo)
             gl.glBufferData(gl.GL_ARRAY_BUFFER, norm_data, gl.GL_STATIC_DRAW)
             self.vertex_count = vertex_count
 
@@ -54,8 +54,8 @@ class GPUMesh:
 
         # uvs
 
+        gl.glBindBuffer(gl.GL_ARRAY_BUFFER, self.mesh_uv_vbo)
         if uv_data is not None:
-            gl.glBindBuffer(gl.GL_ARRAY_BUFFER, self.mesh_uv_vbo)
             gl.glBufferData(gl.GL_ARRAY_BUFFER, uv_data, gl.GL_STATIC_DRAW)
             self.vertex_count = vertex_count
 

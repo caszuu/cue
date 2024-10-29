@@ -70,6 +70,7 @@ class AssetManager:
 
         tex = GPUTexture()
         tex.write_to(surf)
+        self.asset_cache[path] = (AssetTypes.TEXTURE_ASSET, tex)
 
         return tex
 

@@ -1,4 +1,5 @@
 import OpenGL.GL as gl
+import numpy as np
 
 from .cue_resources import GPUTexture
 
@@ -10,7 +11,7 @@ from . import cue_camera as cam, cue_scene as sc
 class RenderTarget:
     __slots__ = []
 
-    def __init__(self, size: tuple[int, int], attachments: list[tuple[gl.GLuint, gl.GLuint, gl.GLuint]]) -> None:
+    def __init__(self, size: tuple[int, int], attachments: list[tuple[np.uint32, np.uint32, np.uint32]]) -> None:
         self.target_fb = gl.glGenFramebuffers(1)
         self.target_attachments = []
 
@@ -45,10 +46,10 @@ class RenderTarget:
             # TODO: might allow x-number of recursions (for Portal like effect)
             #       might allow special draws on recursion limit
 
-            gl.glBindFramebuffer(self.target_fb)
+            gl.glBindFramebuffer(gl.GL_FRAMEBUFFER, self.target_fb)
 
             gl.glClearColor(0., 0., 0., 1.)
-            gl.glClear(gl.GL_COLOR_ATTACHMENT)
+            gl.glClear(gl.GL_COLOR_BUFFER_BIT)
 
             self.current_state = 2
             
@@ -64,7 +65,7 @@ class RenderTarget:
     # 3 - try_view_frame finished
     current_state: int
 
-    target_fb: gl.GLuint
+    target_fb: np.uint32
     target_attachments: list[GPUTexture]
 
     target_camera: 'cam.Camera'

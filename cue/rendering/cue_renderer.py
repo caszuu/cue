@@ -12,6 +12,8 @@ from .cue_scene import RenderScene
 from .cue_gizmos import draw_gizmos, init_gizmos
 from ..im2d.imgui_integ import CueImguiContext
 
+from . import cue_batch
+
 from ..cue_state import GameState
 
 # == cue OpenGL renderer backend ==
@@ -22,7 +24,7 @@ class PostPass:
     def dispatch(self) -> None:
         raise NotImplemented
 
-    def recreate(self) -> None:
+    def resize(self) -> None:
         pass
 
 # == top-level renderer implemetation ==
@@ -52,6 +54,7 @@ class CueRenderer:
 
         self.post_passes = []
         self.cpu_frame_time = 0.
+        self.draw_call_count = 0
 
         GameState.static_sequencer.on_event(pg.VIDEORESIZE, self._on_resize)
         init_gizmos()
@@ -68,6 +71,9 @@ class CueRenderer:
 
     def frame(self, cam: Camera, scene: RenderScene) -> None:
         t = time.perf_counter()
+
+        self.draw_call_count = cue_batch.perfc_submit_count
+        cue_batch.perfc_submit_count = 0
 
         # cam stack draw
 
@@ -105,3 +111,4 @@ class CueRenderer:
     post_passes: list[PostPass]
 
     cpu_frame_time: float
+    draw_call_count: int
