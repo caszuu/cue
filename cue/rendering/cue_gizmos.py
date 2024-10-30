@@ -6,6 +6,9 @@ from pygame.math import Vector3 as Vec3, Vector2 as Vec2
 import numpy as np
 
 import OpenGL.GL as gl
+import imgui
+
+from ..cue_state import GameState
 from .cue_resources import ShaderPipeline
 
 # == Simple Debug Gizmo Draw Api ==
@@ -49,6 +52,31 @@ def draw_box(min_p: Vec3, max_p: Vec3, line_col: Vec3) -> None:
     draw_line(Vec3(min_p.x, max_p.y, min_p.z), Vec3(max_p.x, max_p.y, min_p.z), line_col, line_col)
     draw_line(Vec3(min_p.x, min_p.y, max_p.z), Vec3(max_p.x, min_p.y, max_p.z), line_col, line_col)
     draw_line(Vec3(min_p.x, max_p.y, max_p.z), Vec3(max_p.x, max_p.y, max_p.z), line_col, line_col)
+
+def draw_text(pos: Vec3, text: str, col: Vec3 = Vec3(1., 1., 1.)) -> None:
+    # test is implemented with imgui
+
+    # calculate screen space pos for point (camera matrix and prespective divide)
+    x, y, z, w = (GameState.active_camera.cam_view_proj_matrix @ np.array((*pos, 1.), dtype=np.float32))
+    x /= w
+    y /= w
+    z /= w
+    
+    if z < 0. or z > 1.:
+        return
+
+    start_fade = 4.
+    end_fade = 4.5
+    world_dist = (GameState.active_camera.cam_pos - pos).length_squared()
+
+    alpha = 1. - min(max((world_dist - start_fade) / end_fade, 0.), 1.)
+
+    # scale down to 0 to 1 range (and flip y for imgui)
+    x = x * .5 + .5
+    y = -y * .5 + .5
+
+    x_res, y_res = GameState.renderer.win_res
+    imgui.get_background_draw_list().add_text(x * x_res, y * y_res, imgui.get_color_u32_rgba(*col, alpha), text)
 
 # TODO: more gizmos if required
 
