@@ -78,6 +78,9 @@ class EditorState:
     on_ensure_saved_success: Callable[[], None] | None = None
     entity_tree_filter: str = ""
 
+    drag_drop_payload_buffer: dict[int, Any] = {}
+    next_payload_id: int = 0
+
     # == model import state ==
 
     assimp_scene: Any | None = None
@@ -102,8 +105,8 @@ class EditorState:
     dev_tick_errors: dict[str, str]
 
     # currently editor-wide selected entity
-    selected_entity: str | None = None
-    focus_selected_entity: bool = False
+    selected_entities: set[str] = set()
+    focus_entity: str | None = None
 
     # entities currently with a editor panel open, don't have to be selected
     entities_in_editing: set[str] = set()
@@ -165,7 +168,8 @@ def editor_new_map():
     EditorState.entity_data_storage = {}
     EditorState.dev_tick_storage = {}
     EditorState.dev_tick_errors = {}
-    EditorState.selected_entity = None
+    EditorState.selected_entities = set()
+    EditorState.focus_entity = None
     EditorState.entities_in_editing = set()
     
     reset_editor_ui()
@@ -259,12 +263,14 @@ def handle_entity_rename(old_name: str, new_name: str) -> bool:
     EditorState.entity_data_storage[new_name] = EditorState.entity_data_storage.pop(old_name)
     EditorState.entity_editor_ids[new_name] = EditorState.entity_editor_ids.pop(old_name)
     EditorState.dev_tick_storage.pop(old_name, None) # just discard it to be sure
+    EditorState.dev_tick_errors.pop(old_name, None)
 
     EditorState.entities_in_editing.discard(old_name)
     EditorState.entities_in_editing.add(new_name)
 
-    if EditorState.selected_entity == old_name:
-        EditorState.selected_entity = new_name
+    if old_name in EditorState.selected_entities:
+        EditorState.selected_entities.discard(old_name)
+        EditorState.selected_entities.add(new_name)
     
     return True
 
@@ -295,12 +301,9 @@ def entity_edit_ui(en_name: str):
             imgui.end()
             return # unless we return here, imgui crashes
 
-        if EditorState.focus_selected_entity and EditorState.selected_entity == en_name:
+        if EditorState.focus_entity is not None and EditorState.focus_entity == en_name:
             imgui.set_window_focus()
-            EditorState.focus_selected_entity = False
-
-        if imgui.is_window_focused():
-            EditorState.selected_entity = en_name
+            EditorState.focus_entity = None
 
         # entity header
 
@@ -323,6 +326,7 @@ def entity_edit_ui(en_name: str):
 
             EditorState.entity_data_storage[en_name] = (new_en_type, en_data)
             EditorState.dev_tick_storage.pop(en_name, None) # discard probably uncompatable editor state
+            EditorState.dev_tick_errors.pop(en_name, None)
 
             EditorState.has_unsaved_changes = True
             en_type = new_en_type
@@ -370,7 +374,15 @@ def entity_edit_ui(en_name: str):
                 imgui.table_next_column()
                 imgui.push_item_width(-imgui.FLOAT_MIN)
 
-                if isinstance(value, int | float):
+                if isinstance(value, bool):
+                    imgui.pop_style_color()
+                    imgui.set_cursor_pos_x(imgui.get_cursor_pos_x() + imgui.get_content_region_available_width() * .5 - imgui.get_style().frame_padding[0] * 2.)
+
+                    changed_val, val = imgui.checkbox("##val", value)
+                    en_data[prop] = val
+
+                    imgui.push_style_color(imgui.COLOR_FRAME_BACKGROUND, 0., 0., 0., 0.)
+                elif isinstance(value, int | float):
                     changed_val, val = imgui.drag_float("##val", value, .01)
                     en_data[prop] = val
                 elif isinstance(value, Vec2):
@@ -387,6 +399,26 @@ def entity_edit_ui(en_name: str):
                 else:
                     imgui.text_disabled(repr(value))
                     changed_val = False
+
+                # prop drag n drop
+
+                # with imgui.begin_drag_drop_source() as drag_drop_src:
+                #         if drag_drop_src.dragging:
+                #             # store into drag_drop buffer
+                #             EditorState.drag_drop_payload_buffer[EditorState.next_payload_id] = en_data[prop]
+                # 
+                #             imgui.set_drag_drop_payload("any_arbit", EditorState.next_payload_id.to_bytes(4, 'little'))
+                #             imgui.text_disabled(repr(en_data[prop]))
+                # 
+                #             EditorState.next_payload_id += 1
+
+                with imgui.begin_drag_drop_target() as drag_drop_dst:
+                    if drag_drop_dst.hovered:
+                        payload = imgui.accept_drag_drop_payload("any_arbit")
+                        if payload is not None:
+                            payload_id = int.from_bytes(payload, 'little')
+                            en_data[prop] = EditorState.drag_drop_payload_buffer.pop(payload_id)
+                            changed_val = True
 
                 changed_data |= changed_val
 
@@ -423,6 +455,10 @@ def entity_edit_ui(en_name: str):
         if imgui.begin_popup("##add_prop"):
             imgui.text("Select prop type to add")
             imgui.separator()
+
+            if imgui.selectable("Boolean")[0]:
+                add_new_prop(en_data, "new_bool", False)
+                imgui.close_current_popup()
 
             if imgui.selectable("Number")[0]:
                 add_new_prop(en_data, "new_float", 0.)
@@ -507,41 +543,46 @@ def editor_create_entity():
     EditorState.has_unsaved_changes = True
 
     EditorState.entity_data_storage[en_name] = new_en
-    EditorState.selected_entity = en_name
+    EditorState.selected_entities = {en_name}
 
     # immidatelly open an editor for the entity
     EditorState.entities_in_editing.add(en_name)
 
 def editor_duplicate_entity():
-    if EditorState.selected_entity is None:
+    if not EditorState.selected_entities:
         return
 
+    new_sel = set()
+
+    for en in EditorState.selected_entities:
+        orig_en = EditorState.entity_data_storage[en]
+
+        new_en = (orig_en[0], copy.deepcopy(orig_en[1]))
+        en_name = get_new_entity_name(en)
+
+        EditorState.entity_data_storage[en_name] = new_en
+        new_sel.add(en_name)
+
+        # immidatelly open an editor for the entity
+        EditorState.entities_in_editing.add(en_name)
+
+    EditorState.selected_entities = new_sel
     EditorState.has_unsaved_changes = True
-    orig_en = EditorState.entity_data_storage[EditorState.selected_entity]
-
-    new_en = (orig_en[0], copy.deepcopy(orig_en[1]))
-    en_name = get_new_entity_name(EditorState.selected_entity)
-
-    EditorState.entity_data_storage[en_name] = new_en
-    EditorState.selected_entity = en_name
-
-    # immidatelly open an editor for the entity
-    EditorState.entities_in_editing.add(en_name)
 
 def editor_delete_entity(next_to_select: str | None = None):
-    if EditorState.selected_entity is None:
+    if not EditorState.selected_entities:
         return
 
     EditorState.has_unsaved_changes = True
+
+    for en in EditorState.selected_entities:
+        EditorState.entity_data_storage.pop(en)
+        
+        EditorState.entities_in_editing.discard(en) # close the entities editing panel if was open
+        EditorState.dev_tick_storage.pop(en, None) # cleanup dev state (if any) to save memory
     
-    try:
-        EditorState.entity_data_storage.pop(EditorState.selected_entity)
-    except:
-        utils.error(f"[editor] failed to delete an entity {EditorState.selected_entity}, this is a bug")
-    
-    EditorState.entities_in_editing.discard(EditorState.selected_entity) # close the entities editing panel if was open
-    EditorState.dev_tick_storage.pop(EditorState.selected_entity, None) # cleanup dev state (if any) to save memory
-    EditorState.selected_entity = next_to_select
+    if next_to_select is not None:
+        EditorState.selected_entities = {next_to_select}
 
 def entity_tree_ui():
     imgui.set_next_window_size(305, 350, condition=imgui.FIRST_USE_EVER)
@@ -591,10 +632,14 @@ def entity_tree_ui():
                 if has_error:
                     imgui.push_style_color(imgui.COLOR_TEXT, 1., .35, .35, 1.)
 
-                clicked, selected = imgui.selectable(name, selected=EditorState.selected_entity == name)
+                clicked, selected = imgui.selectable(name, selected=name in EditorState.selected_entities)
                 if clicked:
-                    EditorState.selected_entity = name if selected else None
-                    EditorState.focus_selected_entity = True
+                    EditorState.focus_entity = name
+
+                    if pg.key.get_mods() & pg.KMOD_SHIFT:
+                        EditorState.selected_entities.add(name)
+                    else:
+                        EditorState.selected_entities = {name}
                 
                 if has_error:
                     imgui.pop_style_color()
@@ -1062,7 +1107,7 @@ def start_editor():
                     continue # do not waste time ticking erroneous entities
                 
                 entity_state = EditorState.dev_tick_storage.get(name, None)
-                dev_state['is_selected'] = name == EditorState.selected_entity
+                dev_state['is_selected'] = name in EditorState.selected_entities
 
                 try:
                     EditorState.dev_tick_storage[name] = EntityTypeRegistry.dev_types[en[0]](entity_state, dev_state, en[1])
