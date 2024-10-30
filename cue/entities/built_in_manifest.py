@@ -5,4 +5,4 @@ from . import cue_entity_types
 from . import bt_static_mesh
 
 from . import bt_phys_aabb
-# from . import bt_phys_trigger
+from . import bt_map_trigger

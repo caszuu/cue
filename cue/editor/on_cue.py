@@ -34,6 +34,7 @@ from ..components.cue_freecam import FreecamController
 # == On-Cue Editor ==
 
 EDITOR_ASSET_DIR = "assets/"
+EDITOR_TEST_PLAY_CALLBACK = lambda map_path: utils.error("[editor] Test play callback not provided by launch script, can't Test play.")
 
 # editors global state
 class EditorState:
@@ -70,6 +71,7 @@ class EditorState:
     is_perf_overlay_open: bool = False
     is_model_importer_open: bool = False
     is_entity_tree_open: bool = False
+    is_asset_browser_open: bool = False
 
     is_dev_con_open: bool = False
 
@@ -169,6 +171,7 @@ def editor_new_map():
     reset_editor_ui()
     
     GameState.entity_storage.reset()
+    GameState.asset_manager.reset() # catch asset changes on map reloads
     GameState.sequencer = CueSequencer(time.perf_counter()) # to del all scheduled seqs
     GameState.active_scene = RenderScene()
     GameState.active_camera = Camera(GameState.renderer.win_aspect, 70)
@@ -738,48 +741,58 @@ def model_import_ui() -> None:
 
 # == ui defs ==
 
-def edit_mode_capture_keybinds(e) -> bool:
-    if imgui.is_any_item_active() or EditorState.selected_entity is None:
-        change = EditorState.edit_mode > 0
+asset_preview_tex = None
 
-        EditorState.edit_mode = -EditorState.edit_mode if EditorState.edit_mode > 0 else EditorState.edit_mode
-        EditorState.edit_mode_initial_mouse = None
-        EditorState.edit_mode_axis = 0
+def asset_browser_item(name: str, path: str):
+    imgui.bullet(); imgui.same_line()
+    imgui.selectable(name)
 
-        return change
+    # drag n drop source
 
-    if e.type == pg.KEYDOWN and e.dict['key'] == pg.K_ESCAPE:
-        EditorState.edit_mode = -EditorState.edit_mode
-        EditorState.edit_mode_initial_mouse = None
-        EditorState.edit_mode_axis = 0
-        return True
-    elif (e.type == pg.KEYDOWN and e.dict['key'] == pg.K_RETURN) or (e.type == pg.MOUSEBUTTONDOWN and e.dict['button'] == 1):
-        EditorState.edit_mode = 0
-        EditorState.edit_mode_initial_mouse = None
-        EditorState.edit_mode_axis = 0
-        return True
-    
-    elif e.type == pg.KEYDOWN and e.dict['key'] == pg.K_g:
-        EditorState.edit_mode = 1
-        EditorState.edit_mode_initial_mouse = pg.mouse.get_pos()
-        return True
-    elif e.type == pg.KEYDOWN and e.dict['key'] == pg.K_r:
-        EditorState.edit_mode = 2
-        EditorState.edit_mode_initial_mouse = pg.mouse.get_pos()
-        return True
-    elif e.type == pg.KEYDOWN and e.dict['key'] == pg.K_f:
-        EditorState.edit_mode = 3
-        EditorState.edit_mode_initial_mouse = pg.mouse.get_pos()
-        return True
+    with imgui.begin_drag_drop_source() as drag_drop_src:
+        if drag_drop_src.dragging:
+            # store into drag_drop buffer
+            EditorState.drag_drop_payload_buffer[EditorState.next_payload_id] = path
 
-    elif e.type == pg.KEYDOWN and e.dict['key'] == pg.K_x:
-        EditorState.edit_mode_axis = 1
-    elif e.type == pg.KEYDOWN and e.dict['key'] == pg.K_y:
-        EditorState.edit_mode_axis = 2
-    elif e.type == pg.KEYDOWN and e.dict['key'] == pg.K_z:
-        EditorState.edit_mode_axis = 3
+            imgui.set_drag_drop_payload("any_arbit", EditorState.next_payload_id.to_bytes(4, 'little'))
+            imgui.text_disabled(path)
 
-    return False
+            EditorState.next_payload_id += 1
+
+    # tooltip preview
+
+    if imgui.is_item_hovered():
+        filename, fileext = os.path.splitext(name)
+
+        if fileext in image_formats:
+            with imgui.begin_tooltip():
+                global asset_preview_tex
+                asset_preview_tex = GameState.asset_manager.load_texture(EDITOR_ASSET_DIR + "/" + path)
+
+                imgui.image(asset_preview_tex.texture_handle, 256 * (asset_preview_tex.texture_size[0] / asset_preview_tex.texture_size[1]), 256)
+
+def recurse_asset_subdir(dirpath: str, dirname: str):
+    imgui.push_id(dirpath)
+    if imgui.tree_node(dirname):
+        for name in os.listdir(dirpath):
+            if os.path.isfile(dirpath + "/" + name):
+                asset_browser_item(name, (dirpath + "/" + name).removeprefix(EDITOR_ASSET_DIR + "/"))
+            else:
+                recurse_asset_subdir(dirpath + "/" + name, name + "/")
+
+        imgui.tree_pop()
+
+    imgui.pop_id()
+
+image_formats = [".jpg", ".png", ".webp", ".bmp", ".tiff", ".gif"]
+
+def asset_browser_ui():
+    with imgui.begin("Asset Browser"):
+        for name in os.listdir(EDITOR_ASSET_DIR):
+            if os.path.isfile(EDITOR_ASSET_DIR + "/" + name):
+                asset_browser_item(name, name)
+            else:
+                recurse_asset_subdir(EDITOR_ASSET_DIR + "/" + name, name + "/")
 
 # this is the `main` editor func where we dispatch work based on user's input
 def editor_process_ui():
@@ -805,11 +818,8 @@ def editor_process_ui():
 
             imgui.separator()
 
-            if imgui.menu_item("Test play", "Ctrl+t")[0]:
-                pass
-
-            if imgui.menu_item("Non-Test play")[0]:
-                pass
+            if imgui.menu_item("Test play", "Ctrl+t")[0] and EditorState.map_file_path:
+                EDITOR_TEST_PLAY_CALLBACK(EditorState.map_file_path)
 
             # imgui.separator()
 
@@ -820,8 +830,9 @@ def editor_process_ui():
             imgui.end_menu()
 
         if imgui.begin_menu("Tools"):
-            _, EditorState.is_entity_tree_open = imgui.menu_item("Entity tree", selected=EditorState.is_entity_tree_open)
-            _, EditorState.is_model_importer_open = imgui.menu_item("Model importer", selected=EditorState.is_model_importer_open)
+            _, EditorState.is_entity_tree_open = imgui.menu_item("Entity Tree", selected=EditorState.is_entity_tree_open)
+            _, EditorState.is_asset_browser_open = imgui.menu_item("Asset Browser", selected=EditorState.is_asset_browser_open)
+            _, EditorState.is_model_importer_open = imgui.menu_item("Model Importer", selected=EditorState.is_model_importer_open)
             _, EditorState.is_dev_con_open = imgui.menu_item("Developer Console", selected=EditorState.is_dev_con_open)
 
             imgui.separator()
@@ -843,6 +854,9 @@ def editor_process_ui():
 
     if EditorState.is_model_importer_open:
         model_import_ui()
+
+    if EditorState.is_asset_browser_open:
+        asset_browser_ui()
 
     for en in list(EditorState.entities_in_editing): # note: doing a copy here, as [entities_in_editing] might change mid iteration 
         entity_edit_ui(en)
@@ -912,6 +926,57 @@ def editor_process_ui():
 
         imgui.end_popup()
 
+def edit_mode_capture_keybinds(e) -> bool:
+    if imgui.is_any_item_active() or not EditorState.selected_entities:
+        change = EditorState.edit_mode > 0
+
+        EditorState.edit_mode = -EditorState.edit_mode if EditorState.edit_mode > 0 else EditorState.edit_mode
+        EditorState.edit_mode_initial_mouse = None
+        EditorState.edit_mode_axis = 0
+
+        return change
+
+    if e.type == pg.KEYDOWN and e.dict['key'] == pg.K_ESCAPE:
+        EditorState.edit_mode = -EditorState.edit_mode
+        EditorState.edit_mode_initial_mouse = None
+        EditorState.edit_mode_axis = 0
+        return True
+    elif (e.type == pg.KEYDOWN and e.dict['key'] == pg.K_RETURN) or (e.type == pg.MOUSEBUTTONDOWN and e.dict['button'] == 1):
+        EditorState.edit_mode = 0
+        EditorState.edit_mode_initial_mouse = None
+        EditorState.edit_mode_axis = 0
+        return True
+    
+    elif e.type == pg.KEYDOWN and e.dict['key'] == pg.K_g:
+        EditorState.edit_mode = 1
+        EditorState.edit_mode_initial_mouse = pg.mouse.get_pos()
+        return True
+    elif e.type == pg.KEYDOWN and e.dict['key'] == pg.K_r:
+        EditorState.edit_mode = 2
+        EditorState.edit_mode_initial_mouse = pg.mouse.get_pos()
+        return True
+    elif e.type == pg.KEYDOWN and e.dict['key'] == pg.K_f:
+        EditorState.edit_mode = 3
+        EditorState.edit_mode_initial_mouse = pg.mouse.get_pos()
+        return True
+
+    elif e.type == pg.KEYDOWN and e.dict['key'] == pg.K_x:
+        EditorState.edit_mode_axis = 1
+    elif e.type == pg.KEYDOWN and e.dict['key'] == pg.K_y:
+        EditorState.edit_mode_axis = 2
+    elif e.type == pg.KEYDOWN and e.dict['key'] == pg.K_z:
+        EditorState.edit_mode_axis = 3
+
+    return False
+
+def editor_freecam_speed_tick():
+    if pg.key.get_mods() & pg.KMOD_SHIFT:
+        FreecamController.free_accel = 60
+    else:
+        FreecamController.free_accel = 30
+
+    GameState.static_sequencer.next(editor_freecam_speed_tick)
+
 def start_editor():
     print(f"\n[{utils.bold_escape}info{utils.reset_escape}] [bootstrap] starting the On-Cue Editor")
 
@@ -930,6 +995,7 @@ def start_editor():
     EditorState.ui_ctx = GameState.renderer.fullscreen_imgui_ctx
 
     editor_new_map()
+    editor_freecam_speed_tick()
 
     try:
         while True:

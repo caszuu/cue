@@ -56,6 +56,8 @@ def gen_def_data():
         "a_model_mesh": "models/icosph.npz",
         "a_model_vshader": "shaders/base_cam.vert",
         "a_model_fshader": "shaders/basic_lit.frag",
+        "a_model_albedo": "textures/def_white.png",
+        "a_model_transparent": False,
     }
 
 en.create_entity_type("bt_static_mesh", spawn_static_mesh, BtStaticMesh.despawn, dev_static_mesh, gen_def_data)

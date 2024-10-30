@@ -61,7 +61,7 @@ class AssetManager:
         return surf
 
     # loads a image file to gpu vram; short-hand for load_surface with a texture.write_to()
-    def load_texture(self, path: str) -> GPUTexture:
+    def load_texture(self, path: str, cache_tex: bool = True) -> GPUTexture:
         c = self.check_cache(path, AssetTypes.TEXTURE_ASSET)
         if c is not None:
             return c
@@ -70,7 +70,9 @@ class AssetManager:
 
         tex = GPUTexture()
         tex.write_to(surf)
-        self.asset_cache[path] = (AssetTypes.TEXTURE_ASSET, tex)
+
+        if cache_tex:
+            self.asset_cache[path] = (AssetTypes.TEXTURE_ASSET, tex)
 
         return tex
 
