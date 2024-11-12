@@ -151,7 +151,7 @@ class ShaderPipeline:
             if not result:
                 log = gl.glGetShaderInfoLog(s)
 
-                utils.abort(f"error while compiling a shader {dbg_name}: {str(log)}")
+                utils.error(f"error while compiling a shader {dbg_name}: {str(log)}")
 
             return s
         
@@ -169,7 +169,7 @@ class ShaderPipeline:
         if not result:
             log = gl.glGetProgramInfoLog(p)
 
-            utils.abort(f"error while linking a ShaderPipeline {dbg_name}: {log}")
+            utils.error(f"error while linking a ShaderPipeline {dbg_name}: {log}")
 
         self.shader_program = p
         self.shader_name = dbg_name

@@ -35,10 +35,6 @@ def error(message: str) -> None:
     print(f"[{error_escape}error{reset_escape}] {message}")
     log_buffer.append((error_col, f"[error] {message}"))
 
-def abort(message: str) -> None:
-    print(f"[{error_escape}critical{reset_escape}] {message}")
-    sys.exit(-1)
-
 # matrix transform utils
 # again everything is sourced from https://songho.ca/index.html
 
@@ -74,6 +70,7 @@ def mat4_rotate(angle: float, axis: tuple[float, float, float]) -> np.ndarray:
     c = math.cos(angle)
     nc = 1 - c
 
+    # pain
     return np.array([
         [nc * (x ** 2) + c, nc * x * y - s * z, nc * x * z + s * y, 0],
         [nc * x * y + s * z, nc * (y ** 2) + c, nc * y * z - s * x, 0],

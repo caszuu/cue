@@ -583,6 +583,8 @@ def editor_delete_entity(next_to_select: str | None = None):
     
     if next_to_select is not None:
         EditorState.selected_entities = {next_to_select}
+    else:
+        EditorState.selected_entities = {}
 
 def entity_tree_ui():
     imgui.set_next_window_size(305, 350, condition=imgui.FIRST_USE_EVER)
