@@ -18,13 +18,16 @@ class PhysAABB:
 @dataclass(init=False, slots=True)
 class BtPhysAABB:
     def __init__(self, en_data: dict) -> None:
-        pass # self.en_aabb
+        self.en_aabb = PhysAABB.make(en_data["t_pos"], en_data["t_scale"])
+        self.en_trans = Transform(en_data["t_pos"], Vec3(0., 0., 0.), en_data["t_scale"])
+        
+        GameState.collider_scene.add_coll(self.en_aabb)
     
     # def __del__(self) -> None:
     #     pass
 
     def despawn(self) -> None:
-        self.en_aabb.disable()
+        GameState.collider_scene.remove_coll(self.en_aabb)
     
     en_trans: Transform
     en_aabb: PhysAABB

@@ -6,6 +6,7 @@ if TYPE_CHECKING:
 
     from .rendering import cue_renderer as ren, cue_scene as ren_sc, cue_camera as ren_cam
     from . import cue_sequence as seq, cue_entity_storage as en, cue_assets as ast
+    from .phys import cue_phys_scene as phys
 
 # == Cue Game State ==
 
@@ -26,6 +27,8 @@ class GameState:
 
     active_scene: 'ren_sc.RenderScene'
     active_camera: 'ren_cam.Camera'
+
+    collider_scene: 'phys.PhysScene'
 
     # == global vars ==
 
