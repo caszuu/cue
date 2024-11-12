@@ -16,10 +16,9 @@ class ModelRenderer:
         self.mesh = GameState.asset_manager.load_mesh(en_data["a_model_mesh"])
         self.pipeline = GameState.asset_manager.load_shader(en_data["a_model_vshader"], en_data["a_model_fshader"])
 
+        self.model_textures = tuple()
         if "a_model_albedo" in en_data:
             self.model_textures = (GameState.asset_manager.load_texture(en_data["a_model_albedo"]),)
-        else:
-            self.model_textures = tuple()
 
         self.model_opaque = True
         if en_data.get("a_model_transparent", False):

@@ -55,7 +55,7 @@ def gen_def_data():
         "t_scale": Vec3([1.0, 1.0, 1.0]),
         "a_model_mesh": "models/icosph.npz",
         "a_model_vshader": "shaders/base_cam.vert",
-        "a_model_fshader": "shaders/basic_lit.frag",
+        "a_model_fshader": "shaders/unlit.frag",
         "a_model_albedo": "textures/def_white.png",
         "a_model_transparent": False,
     }

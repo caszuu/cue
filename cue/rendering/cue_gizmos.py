@@ -53,8 +53,8 @@ def draw_box(min_p: Vec3, max_p: Vec3, line_col: Vec3) -> None:
     draw_line(Vec3(min_p.x, min_p.y, max_p.z), Vec3(max_p.x, min_p.y, max_p.z), line_col, line_col)
     draw_line(Vec3(min_p.x, max_p.y, max_p.z), Vec3(max_p.x, max_p.y, max_p.z), line_col, line_col)
 
-def draw_text(pos: Vec3, text: str, col: Vec3 = Vec3(1., 1., 1.)) -> None:
-    # test is implemented with imgui
+def draw_text(pos: Vec3, text: str, col: Vec3 = Vec3(1., 1., 1.), start_fade: float = 4., end_fade: float = 4.5) -> None:
+    # text is implemented with imgui
 
     # calculate screen space pos for point (camera matrix and prespective divide)
     x, y, z, w = (GameState.active_camera.cam_view_proj_matrix @ np.array((*pos, 1.), dtype=np.float32))
@@ -65,10 +65,7 @@ def draw_text(pos: Vec3, text: str, col: Vec3 = Vec3(1., 1., 1.)) -> None:
     if z < 0. or z > 1.:
         return
 
-    start_fade = 4.
-    end_fade = 4.5
     world_dist = (GameState.active_camera.cam_pos - pos).length_squared()
-
     alpha = 1. - min(max((world_dist - start_fade) / end_fade, 0.), 1.)
 
     # scale down to 0 to 1 range (and flip y for imgui)
@@ -103,7 +100,7 @@ def draw_gizmos() -> None:
     
     # reset draw_buffer
     gl.glBindBuffer(gl.GL_ARRAY_BUFFER, CueGizmos.draw_buffer)
-    gl.glBufferData(gl.GL_ARRAY_BUFFER, CueGizmos.draw_stack_byte_size, None, gl.GL_DYNAMIC_DRAW)
+    gl.glBufferData(gl.GL_ARRAY_BUFFER, CueGizmos.draw_stack_byte_size, None, gl.GL_STREAM_DRAW)
 
     gl.glBindVertexArray(CueGizmos.draw_vao)
     gl.glUseProgram(CueGizmos.draw_shader.shader_program)
