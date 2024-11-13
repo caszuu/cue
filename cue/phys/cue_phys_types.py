@@ -41,7 +41,7 @@ aabb_normal_lookup_table = [
     np.array([0, 0, -1], dtype=np.float32),
 ]
 
-epsilon = np.float32(1e-6)
+EPSILON = np.float32(1e-6)
 
 @dataclass(slots=True)
 class PhysAABB:
@@ -53,29 +53,29 @@ class PhysAABB:
             points = np.array((pos - size / 2, pos + size / 2), dtype=np.float32)
         )
 
-    def _find_hit_norm(self, ray_pos: np.ndarray, ray_dir: np.ndarray) -> np.ndarray:
+    def _find_hit_norm(self, ray_pos: np.ndarray, ray_dir: np.ndarray, ray_box: np.ndarray) -> np.ndarray:
         tmax = float('inf')
         face_index = None
         
         # min pass
 
-        p0 = self.points[0]
+        p0 = self.points[0] - ray_box
         for d in range(3):
             denom = np.dot(aabb_normal_lookup_table[d], ray_dir)
-            if denom > epsilon:
+            if denom > EPSILON:
                 t = np.dot(p0 - ray_pos, aabb_normal_lookup_table[d])
-                if t >= -epsilon and tmax > t:
+                if t >= -EPSILON and tmax > t:
                     tmax = t
                     face_index = d
 
         # max pass
 
-        p0 = self.points[1]
+        p0 = self.points[1] + ray_box
         for d in range(3, 6):
             denom = np.dot(aabb_normal_lookup_table[d], ray_dir)
-            if denom > epsilon:
+            if denom > EPSILON:
                 t = np.dot(p0 - ray_pos, aabb_normal_lookup_table[d])
-                if t >= -epsilon and tmax > t:
+                if t >= -EPSILON and tmax > t:
                     tmax = t
                     face_index = d
 
@@ -100,7 +100,7 @@ class PhysAABB:
 
         if tmin < tmax:
             hit_pos = ray.o + ray.d * tmin
-            return PhysRayHit(hit_pos, self._find_hit_norm(hit_pos, ray.d), tmin)
+            return PhysRayHit(hit_pos, self._find_hit_norm(hit_pos, ray.d, ray.b), tmin)
 
     def aabb_intersect(self, other_box: 'PhysAABB') -> bool:
         return all(self.points[0] <= other_box.points[1]) and all(self.points[1] >= other_box.points[0])

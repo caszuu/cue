@@ -1,7 +1,10 @@
 from dataclasses import dataclass
+
 from . import cue_entity_types as en
+from ..cue_state import GameState
 
 from ..components.cue_transform import Transform
+from ..phys.cue_phys_types import PhysAABB
 from ..rendering import cue_gizmos as gizmo
 
 from pygame.math import Vector3 as Vec3
@@ -10,10 +13,6 @@ import pygame as pg
 from .cue_entity_utils import handle_transform_edit_mode
 
 # a simple built-in Axis Aligned Bounding Box entity usually used for world colliders
-
-class PhysAABB:
-    def disable(self):
-        pass
 
 @dataclass(init=False, slots=True)
 class BtPhysAABB:
