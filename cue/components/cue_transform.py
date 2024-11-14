@@ -14,9 +14,24 @@ class Transform:
         self._pos = pos
         self._rot = rot
         self._scale = scale
+        self._parent = None
 
         self._change_event = seq.create_event("trans_change")
         self._update()
+
+    def _update(self) -> None:
+        self._trans_matrix = (
+            utils.mat4_translate(self._pos) @
+            utils.mat4_rotate(math.radians(self._rot.x), (1., 0., 0.)) @
+            utils.mat4_rotate(math.radians(self._rot.y), (0., -1., 0.)) @
+            utils.mat4_rotate(math.radians(self._rot.z), (0., 0., 1.)) @
+            utils.mat4_scale(self._scale)
+        )
+
+        if self._parent is not None:
+            self._trans_matrix = self._parent._trans_matrix @ self._trans_matrix
+
+        seq.fire_event(self._change_event, self)
 
     # == transform api ==
 
@@ -32,16 +47,8 @@ class Transform:
         self._scale = scale
         self._update()
 
-    def _update(self) -> None:
-        self._trans_matrix = (
-            utils.mat4_translate(self._pos) @
-            utils.mat4_rotate(math.radians(self._rot.x), (1., 0., 0.)) @
-            utils.mat4_rotate(math.radians(self._rot.y), (0., -1., 0.)) @
-            utils.mat4_rotate(math.radians(self._rot.z), (0., 0., 1.)) @
-            utils.mat4_scale(self._scale)
-        )
-
-        seq.fire_event(self._change_event, self)
+    def set_parent(self, parent: 'Transform | None') -> None:
+        self._parent = parent
 
     # do *not* change directly, use set_* to set entries
     _pos: pm.Vector3
@@ -49,3 +56,4 @@ class Transform:
     _scale: pm.Vector3
 
     _change_event: int
+    _parent: 'Transform | None'
