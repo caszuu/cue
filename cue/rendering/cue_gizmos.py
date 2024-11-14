@@ -53,6 +53,7 @@ def draw_box(min_p: Vec3, max_p: Vec3, line_col: Vec3) -> None:
     draw_line(Vec3(min_p.x, min_p.y, max_p.z), Vec3(max_p.x, min_p.y, max_p.z), line_col, line_col)
     draw_line(Vec3(min_p.x, max_p.y, max_p.z), Vec3(max_p.x, max_p.y, max_p.z), line_col, line_col)
 
+@np.errstate(all='ignore')
 def draw_text(pos: Vec3, text: str, col: Vec3 = Vec3(1., 1., 1.), start_fade: float = 4., end_fade: float = 4.5) -> None:
     # text is implemented with imgui
 

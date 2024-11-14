@@ -1,3 +1,4 @@
+import sys
 import pygame as pg
 import OpenGL.GL as gl
 import numpy as np
@@ -98,6 +99,9 @@ class GPUTexture:
         gl.glTexParameteri(gl.GL_TEXTURE_2D, gl.GL_TEXTURE_WRAP_T, wrap)
 
     def __del__(self) -> None:
+        if sys.meta_path is None: # python is likely shuting down, pyopengl will fail, just let the resources get freed by the os
+            return    
+            
         gl.glDeleteTextures(1, [self.texture_handle])
 
     # mutator funcs; note: binds to current active texture and leaves it bound

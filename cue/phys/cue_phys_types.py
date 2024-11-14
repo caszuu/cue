@@ -28,6 +28,7 @@ class PhysRayHit:
     norm: np.ndarray
 
     tmin: float
+    tout: float
 
 # == aabb ==
 
@@ -41,7 +42,7 @@ aabb_normal_lookup_table = [
     np.array([0, 0, -1], dtype=np.float32),
 ]
 
-EPSILON = np.float32(1e-6)
+EPSILON = np.float32(1e-5)
 
 @dataclass(slots=True)
 class PhysAABB:
@@ -87,6 +88,7 @@ class PhysAABB:
 
     def ray_cast(self, ray: PhysRay, tmax: float) -> PhysRayHit | None:
         tmin = 0.
+        tout = -float('inf')
 
         min_points = self.points[0] - ray.b
         max_points = self.points[1] + ray.b
@@ -96,11 +98,12 @@ class PhysAABB:
             t2 = (max_points[d] - ray.o[d]) * ray.d_inv[d]
             
             tmin = max(tmin, min(t1, t2))
+            tout = max(tout, min(t1, t2))
             tmax = min(tmax, max(t1, t2))
 
         if tmin < tmax:
             hit_pos = ray.o + ray.d * tmin
-            return PhysRayHit(hit_pos, self._find_hit_norm(hit_pos, ray.d, ray.b), tmin)
+            return PhysRayHit(hit_pos, self._find_hit_norm(hit_pos, ray.d, ray.b), tmin, tout)
 
     def aabb_intersect(self, other_box: 'PhysAABB') -> bool:
         return all(self.points[0] <= other_box.points[1]) and all(self.points[1] >= other_box.points[0])
