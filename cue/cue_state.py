@@ -36,3 +36,5 @@ class GameState:
     
     cpu_tick_time: float
     cpu_render_time: float
+
+    current_map: str

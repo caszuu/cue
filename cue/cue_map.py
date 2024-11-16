@@ -62,10 +62,9 @@ import time
 def reset_map() -> None:
     GameState.entity_storage.reset()
     GameState.sequencer.reset(time.perf_counter())
-
-    GameState.asset_manager.reset()
     
     GameState.active_scene.reset()
+    GameState.collider_scene.reset()
 
     if hasattr(GameState, "active_camera"):
         del GameState.active_camera
@@ -93,6 +92,7 @@ def load_map(file_path: str) -> None:
         map_file = json.load(f)
 
     reset_map()
+    GameState.current_map = file_path
 
     try:
         # validate map

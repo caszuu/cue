@@ -48,3 +48,19 @@ def assetc_flush(args: list[str]):
     GameState.asset_manager.reset()
 
 utils.add_dev_command("flush_assetc", assetc_flush)
+
+def reload_cmd(args: list[str]):
+    if len(args) != 0:
+        utils.error("unknown args")
+        return
+
+    if not hasattr(GameState, "current_map"):
+        utils.error("not map currently loaded, can't reload")
+        return
+
+    # flush cache and reload assets
+    GameState.asset_manager.reset()
+
+    cue_map.load_map(GameState.current_map)
+
+utils.add_dev_command("reload", reload_cmd)

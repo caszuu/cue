@@ -6,6 +6,9 @@ from .cue_phys_types import PhysRay, PhysRayHit, PhysAABB, PhysHalfPlanes
 @dataclass(init=False, slots=True)
 class PhysScene:
     def __init__(self) -> None:
+        self.reset()
+    
+    def reset(self) -> None:
         self.scene_aabbs = []
         self.scene_planes = []
 

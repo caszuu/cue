@@ -141,14 +141,15 @@ def show_developer_console() -> bool:
     if enter_input:
         cmd_parts = cmd_buffer.strip().split(' ')
 
-        cb = cmd_callbacks.get(cmd_parts[0], None)
-        if cb is None:
-            error(f"No command named \"{cmd_parts[0]}\" found")
-        else:
-            console(f"{cmd_buffer}")
-            cb(cmd_parts[1:])
+        if cmd_buffer.strip() != "":
+            cb = cmd_callbacks.get(cmd_parts[0], None)
+            if cb is None:
+                error(f"No command named \"{cmd_parts[0]}\" found")
+            else:
+                console(f"{cmd_buffer}")
+                cb(cmd_parts[1:])
 
-        cmd_buffer = ""
+            cmd_buffer = ""
     
     imgui.set_item_default_focus()
     if enter_input:
