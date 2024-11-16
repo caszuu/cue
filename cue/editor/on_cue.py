@@ -182,7 +182,7 @@ def editor_new_map():
 
     EditorState.editor_freecam = FreecamController(GameState.active_camera)
 
-def editor_save_map(path: str | None) -> None:
+def editor_save_map(path: str | None = None) -> None:
     if path == None:
         path = filedialpy.saveFile(title="Save map file", filter=["*.json"])
         
@@ -584,7 +584,7 @@ def editor_delete_entity(next_to_select: str | None = None):
     if next_to_select is not None:
         EditorState.selected_entities = {next_to_select}
     else:
-        EditorState.selected_entities = {}
+        EditorState.selected_entities = set()
 
 def entity_tree_ui():
     imgui.set_next_window_size(305, 350, condition=imgui.FIRST_USE_EVER)
@@ -854,14 +854,14 @@ def editor_process_ui():
             if imgui.menu_item("New map", None)[0]:
                 unsaved_open = ensure_map_saved(lambda: editor_new_map())
 
-            if imgui.menu_item("Open map", None)[0]:
+            if imgui.menu_item("Open map", "Ctrl+o")[0]:
                 unsaved_open = ensure_map_saved(lambda: editor_load_map())
 
             if imgui.menu_item("Save map", "Ctrl+s")[0]:
                 editor_save_map(EditorState.map_file_path)
 
             if imgui.menu_item("Save map as..")[0]:
-                editor_save_map(None)
+                editor_save_map()
 
             imgui.separator()
 
@@ -879,6 +879,10 @@ def editor_process_ui():
         if imgui.begin_menu("Tools"):
             _, EditorState.is_entity_tree_open = imgui.menu_item("Entity Tree", selected=EditorState.is_entity_tree_open)
             _, EditorState.is_asset_browser_open = imgui.menu_item("Asset Browser", selected=EditorState.is_asset_browser_open)
+
+            imgui.separator()
+
+            _, _ = imgui.menu_item("Collider Tool", selected=False)
             _, EditorState.is_model_importer_open = imgui.menu_item("Model Importer", selected=EditorState.is_model_importer_open)
             _, EditorState.is_dev_con_open = imgui.menu_item("Developer Console", selected=EditorState.is_dev_con_open)
 
@@ -1016,6 +1020,19 @@ def edit_mode_capture_keybinds(e) -> bool:
 
     return False
 
+def editor_wide_keybinds(e):
+    if e.type != pg.KEYDOWN:
+        return
+
+    elif e.dict['key'] == pg.K_s and e.dict['mod'] & pg.KMOD_CTRL:
+        editor_save_map(EditorState.map_file_path)
+
+    elif e.dict['key'] == pg.K_o and e.dict['mod'] & pg.KMOD_CTRL:
+        editor_load_map()
+
+    elif e.dict['key'] == pg.K_t and e.dict['mod'] & pg.KMOD_CTRL and EditorState.map_file_path:
+        EDITOR_TEST_PLAY_CALLBACK(EditorState.map_file_path)
+
 def editor_freecam_speed_tick():
     if pg.key.get_mods() & pg.KMOD_SHIFT:
         FreecamController.free_accel = 60
@@ -1064,6 +1081,8 @@ def start_editor():
 
                 # capture edit mode keybinds
                 edit_mode_changed |= edit_mode_capture_keybinds(e)
+
+                editor_wide_keybinds(e)
 
                 GameState.sequencer.send_event_id(e.type, e)
                 GameState.static_sequencer.send_event_id(e.type, e)
