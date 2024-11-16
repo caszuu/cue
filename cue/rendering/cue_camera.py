@@ -89,9 +89,10 @@ class Camera:
     def set_view(self, pos: pm.Vector3, rot: pm.Vector3) -> None:
         self.cam_view_proj_matrix = (
             self.cam_proj_mat @
-            utils.mat4_rotate(math.radians(rot.x), (1., 0., 0.)) @
-            utils.mat4_rotate(math.radians(rot.y), (0., -1., 0.)) @
-            utils.mat4_rotate(math.radians(rot.z), (0., 0., 1.)) @
+            utils.mat4_rotate_axis(math.radians(rot.x), (1., 0., 0.)) @
+            utils.mat4_rotate_axis(math.radians(rot.y), (0., -1., 0.)) @
+            utils.mat4_rotate_axis(math.radians(rot.z), (0., 0., 1.)) @
+            # utils.mat4_rotate((math.radians(self._rot.x), math.radians(self._rot.y), math.radians(self._rot.z))) @
             utils.mat4_translate(-pos)
         )
 
@@ -121,6 +122,9 @@ class Camera:
             gl.glClearDepth(self.cam_clear_depth)
 
         gl.glClear(self.cam_clear_bits)
+
+        gl.glEnable(gl.GL_CULL_FACE)
+        gl.glCullFace(gl.GL_BACK)
 
         scene.frame(self.cam_view_proj_matrix)
 

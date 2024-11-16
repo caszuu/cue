@@ -854,7 +854,7 @@ def editor_process_ui():
             if imgui.menu_item("New map", None)[0]:
                 unsaved_open = ensure_map_saved(lambda: editor_new_map())
 
-            if imgui.menu_item("Open map", "Ctrl+o")[0]:
+            if imgui.menu_item("Open map")[0]:
                 unsaved_open = ensure_map_saved(lambda: editor_load_map())
 
             if imgui.menu_item("Save map", "Ctrl+s")[0]:
@@ -1027,9 +1027,6 @@ def editor_wide_keybinds(e):
     elif e.dict['key'] == pg.K_s and e.dict['mod'] & pg.KMOD_CTRL:
         editor_save_map(EditorState.map_file_path)
 
-    elif e.dict['key'] == pg.K_o and e.dict['mod'] & pg.KMOD_CTRL:
-        editor_load_map()
-
     elif e.dict['key'] == pg.K_t and e.dict['mod'] & pg.KMOD_CTRL and EditorState.map_file_path:
         EDITOR_TEST_PLAY_CALLBACK(EditorState.map_file_path)
 
@@ -1122,6 +1119,9 @@ def start_editor():
                 "editor_cam_up": EditorState.editor_freecam.free_up,
                 "suggested_initial_pos": EditorState.editor_freecam.free_pos + (EditorState.editor_freecam.free_forward * 2.),
             }
+
+            if EditorState.edit_mode:
+                EditorState.has_unsaved_changes = True
 
             for name, en in EditorState.entity_data_storage.items():
                 if name in EditorState.dev_tick_errors:

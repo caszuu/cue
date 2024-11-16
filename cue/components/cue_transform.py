@@ -22,9 +22,7 @@ class Transform:
     def _update(self) -> None:
         self._trans_matrix = (
             utils.mat4_translate(self._pos) @
-            utils.mat4_rotate(math.radians(self._rot.x), (1., 0., 0.)) @
-            utils.mat4_rotate(math.radians(self._rot.y), (0., -1., 0.)) @
-            utils.mat4_rotate(math.radians(self._rot.z), (0., 0., 1.)) @
+            utils.mat4_rotate((math.radians(self._rot.x), math.radians(self._rot.y), math.radians(self._rot.z))) @
             utils.mat4_scale(self._scale)
         )
 

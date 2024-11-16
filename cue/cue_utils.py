@@ -36,7 +36,7 @@ def error(message: str) -> None:
     log_buffer.append((error_col, f"[error] {message}"))
 
 # matrix transform utils
-# again everything is sourced from https://songho.ca/index.html
+# again everything is sourced from https://songho.ca/index.html or https://en.wikipedia.org/wiki/Rotation_matrix
 
 import numpy as np
 import math
@@ -61,7 +61,26 @@ def mat4_scale(scale: tuple[float, float, float]) -> np.ndarray:
         [0, 0, 0, 1],
     ], dtype=np.float32)
 
-def mat4_rotate(angle: float, axis: tuple[float, float, float]) -> np.ndarray:
+def mat4_rotate(axes: tuple[float, float, float]) -> np.ndarray:
+    x, y, z = axes
+    
+    sx = math.sin(x)
+    cx = math.cos(x)
+
+    sy = math.sin(-y)
+    cy = math.cos(-y)
+
+    sz = math.sin(z)
+    cz = math.cos(z)
+
+    return np.array([
+        [cy * cz, sx * sy * cz - cx * sz, cx * sy * cz + sx * sz, 0],
+        [cy * sz, sx * sy * sz + cx * cz, cx * sy * sz - sx * cz, 0],
+        [-sy, sx * cy, cx * cy, 0],
+        [0, 0, 0, 1],
+    ], dtype=np.float32)
+
+def mat4_rotate_axis(angle: float, axis: tuple[float, float, float]) -> np.ndarray:
     x = axis[0]
     y = axis[1]
     z = axis[2]
