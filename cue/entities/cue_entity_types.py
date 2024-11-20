@@ -1,8 +1,7 @@
 from dataclasses import dataclass
 from typing import Callable, Any
-import pygame as pg
 
-from ..cue_state import GameState
+from pygame.math import Vector3 as Vec3
 
 # == Cue Entity Type System ==
 
@@ -29,11 +28,33 @@ from ..cue_state import GameState
 # == entity type registry ==
 
 @dataclass(slots=True)
+class DevTickState:
+    # edit mode
+
+    edit_mode: int
+    edit_mode_axis: int
+
+    edit_mode_changed: bool
+    edit_mode_mouse_diff: tuple[int, int] | None
+
+    # entity
+
+    is_entity_selected: bool
+    suggested_initial_pos: Vec3
+
+    # editor viewport
+
+    view_pos: Vec3
+    view_forward: Vec3
+    view_right: Vec3
+    view_up: Vec3
+
+@dataclass(slots=True)
 class EntityType:
     spawn_call: Callable[[dict], Any]
     despawn_call: Callable[[Any], None] | None
 
-    dev_call: Callable[[Any, dict, dict], Any] | None
+    dev_call: Callable[[Any, DevTickState, dict], Any] | None
     default_data: Callable[[], dict]
 
 class EntityTypeRegistry:
@@ -50,7 +71,7 @@ class EntityTypeRegistry:
 
 # == entity type init api ==
 
-def create_entity_type(entity_type_name: str, spawn: Callable[[dict], Any], despawn: Callable[[Any], None] | None, dev: Callable[[Any, dict, dict], Any] | None, default_en_data: Callable[[], dict]):
+def create_entity_type(entity_type_name: str, spawn: Callable[[dict], Any], despawn: Callable[[Any], None] | None, dev: Callable[[Any, DevTickState, dict], Any] | None, default_en_data: Callable[[], dict]):
     # validate type
     
     if entity_type_name in EntityTypeRegistry.entity_types:

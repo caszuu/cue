@@ -36,12 +36,12 @@ def spawn_phys_aabb(en_data: dict) -> BtPhysAABB:
 
 # dev tick and aabb editor
 
-def dev_phys_aabb(s: dict | None, dev_state: dict, en_data: dict) -> dict:
+def dev_phys_aabb(s: dict | None, dev_state: en.DevTickState, en_data: dict) -> dict:
     if s is None:
         # init aabb editor
 
         if en_data["t_pos"] is None:
-            en_data["t_pos"] = dev_state["suggested_initial_pos"]
+            en_data["t_pos"] = dev_state.suggested_initial_pos
 
         s = {"aabb_t": Transform(en_data["t_pos"], Vec3(0., 0., 0.), en_data["t_scale"]), "last_data": dict(en_data)}
     elif en_data != s["last_data"]:
@@ -50,7 +50,7 @@ def dev_phys_aabb(s: dict | None, dev_state: dict, en_data: dict) -> dict:
 
     # user input
 
-    if dev_state["is_selected"]:
+    if dev_state.is_entity_selected:
         handle_transform_edit_mode(s, dev_state, en_data, True, False, True)
 
     # draw aabb gizmo
@@ -60,7 +60,7 @@ def dev_phys_aabb(s: dict | None, dev_state: dict, en_data: dict) -> dict:
     min_p = t._pos - t._scale / 2
     max_p = t._pos + t._scale / 2
 
-    line_col = Vec3(.55, 1., .35) if dev_state["is_selected"] else Vec3(.2, .5, .05)
+    line_col = Vec3(.55, 1., .35) if dev_state.is_entity_selected else Vec3(.2, .5, .05)
 
     gizmo.draw_box(min_p, max_p, line_col)
 

@@ -10,8 +10,7 @@ if TYPE_CHECKING:
 
 # == Cue Game State ==
 
-# This is a top-levl global class containing refs to the many storage classes
-# currently in use by the engine code
+# This is a top-levl global class containing refs to the many engine system classes
 
 class GameState:
     # == subsystem handles ==

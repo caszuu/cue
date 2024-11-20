@@ -28,12 +28,12 @@ def spawn_static_mesh(en_data: dict) -> BtStaticMesh:
     return BtStaticMesh(en_data)
 
 # since BtStaticMesh is already static, we can simply use it directly instead of faking it for the editor
-def dev_static_mesh(s: dict | None, dev_state: dict, en_data: dict) -> dict:
+def dev_static_mesh(s: dict | None, dev_state: en.DevTickState, en_data: dict) -> dict:
     if s is None:
         # init mesh
 
         if en_data["t_pos"] is None:
-            en_data["t_pos"] = dev_state["suggested_initial_pos"]
+            en_data["t_pos"] = dev_state.suggested_initial_pos
 
         s = {"mesh": BtStaticMesh(en_data), "en_data": dict(en_data)}
     elif en_data != s["en_data"]:
@@ -42,7 +42,7 @@ def dev_static_mesh(s: dict | None, dev_state: dict, en_data: dict) -> dict:
         s["mesh"] = BtStaticMesh(en_data)
         s["en_data"] = dict(en_data)
 
-    if dev_state["is_selected"]:
+    if dev_state.is_entity_selected:
         # handle trasnsform editing
         handle_transform_edit_mode(s, dev_state, en_data)
 

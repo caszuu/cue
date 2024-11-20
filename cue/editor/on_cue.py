@@ -13,7 +13,7 @@ from ..cue_state import GameState
 from ..cue_assets import AssetManager
 from ..cue_sequence import CueSequencer
 from ..cue_entity_storage import EntityStorage
-from ..entities.cue_entity_types import EntityTypeRegistry
+from ..entities.cue_entity_types import EntityTypeRegistry, DevTickState
 
 from ..rendering.cue_renderer import CueRenderer
 from ..rendering.cue_camera import Camera
@@ -1105,20 +1105,20 @@ def start_editor():
 
             # perform dev/editor ticks
 
-            dev_state = {
-                "is_selected": None,
-                "edit_mode": (
-                    EditorState.edit_mode,
-                    edit_mode_changed,
-                    (pg.mouse.get_pos()[0] - EditorState.edit_mode_initial_mouse[0], -(pg.mouse.get_pos()[1] - EditorState.edit_mode_initial_mouse[1])) if EditorState.edit_mode_initial_mouse is not None else None,
-                    EditorState.edit_mode_axis,
-                ),
-                "editor_cam_pos": EditorState.editor_freecam.free_pos,
-                "editor_cam_forward": EditorState.editor_freecam.free_forward,
-                "editor_cam_right": EditorState.editor_freecam.free_right_flat,
-                "editor_cam_up": EditorState.editor_freecam.free_up,
-                "suggested_initial_pos": EditorState.editor_freecam.free_pos + (EditorState.editor_freecam.free_forward * 2.),
-            }
+            dev_state = DevTickState(
+                edit_mode=EditorState.edit_mode,
+                edit_mode_axis=EditorState.edit_mode_axis,
+                edit_mode_changed=edit_mode_changed,
+                edit_mode_mouse_diff=(pg.mouse.get_pos()[0] - EditorState.edit_mode_initial_mouse[0], -(pg.mouse.get_pos()[1] - EditorState.edit_mode_initial_mouse[1])) if EditorState.edit_mode_initial_mouse is not None else None,
+
+                is_entity_selected=False, # will be set per entity
+                suggested_initial_pos=EditorState.editor_freecam.free_pos + (EditorState.editor_freecam.free_forward * 2.),
+
+                view_pos=EditorState.editor_freecam.free_pos,
+                view_forward=EditorState.editor_freecam.free_forward,
+                view_right=EditorState.editor_freecam.free_right_flat,
+                view_up=EditorState.editor_freecam.free_up,
+            )
 
             if EditorState.edit_mode:
                 EditorState.has_unsaved_changes = True
@@ -1128,7 +1128,7 @@ def start_editor():
                     continue # do not waste time ticking erroneous entities
                 
                 entity_state = EditorState.dev_tick_storage.get(name, None)
-                dev_state['is_selected'] = name in EditorState.selected_entities
+                dev_state.is_entity_selected = name in EditorState.selected_entities
 
                 try:
                     EditorState.dev_tick_storage[name] = EntityTypeRegistry.dev_types[en[0]](entity_state, dev_state, en[1])
