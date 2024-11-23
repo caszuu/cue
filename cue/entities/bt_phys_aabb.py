@@ -70,7 +70,6 @@ def gen_def_data():
     return {
         "t_pos": None, # will be filled by "suggested_initial_pos"
         "t_scale": Vec3(1., 1., 1.),
-        "phys_bitmask": 0,
     }
 
 en.create_entity_type("bt_phys_aabb", spawn_phys_aabb, BtPhysAABB.despawn, dev_phys_aabb, gen_def_data)

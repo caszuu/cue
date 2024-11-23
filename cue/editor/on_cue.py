@@ -15,6 +15,7 @@ from ..cue_sequence import CueSequencer
 from ..cue_entity_storage import EntityStorage
 from ..entities.cue_entity_types import EntityTypeRegistry, DevTickState
 
+from ..components.cue_transform import Transform
 from ..rendering.cue_renderer import CueRenderer
 from ..rendering.cue_camera import Camera
 from ..rendering.cue_scene import RenderScene
@@ -68,11 +69,12 @@ class EditorState:
     # == ui state ==
 
     is_settings_win_open: bool = False
-    is_perf_overlay_open: bool = False
     is_model_importer_open: bool = False
     is_entity_tree_open: bool = False
     is_asset_browser_open: bool = False
+    is_collider_tool_open: bool = False
 
+    is_perf_overlay_open: bool = False
     is_dev_con_open: bool = False
 
     on_ensure_saved_success: Callable[[], None] | None = None
@@ -88,6 +90,14 @@ class EditorState:
 
     assimp_sel_mesh: int = 0
     assimp_saved_msg: str | None = None
+
+    # == tool states ==
+
+    coll_tool_padding: Vec3 = Vec3()
+    coll_tool_preview_enabled: bool = True
+    coll_tool_coll_name: str = "blah"
+    
+    coll_tool_mesh_cache: dict[str, np.ndarray] = {}
 
     # == map state ==
 
@@ -786,6 +796,149 @@ def model_import_ui() -> None:
 
                 imgui.end_tab_item()
 
+# == specific editor tool ui ==
+
+# currently only supports any entity with standard ModelRenderer and Transform entity data params, assuming Transform is world space
+def compute_model_bounds(en_data: dict) -> tuple[Vec3, Vec3]:
+    # fetch relevant data from model entity
+    test_trans = Transform(en_data["t_pos"], en_data["t_rot"], en_data["t_scale"])
+    
+    vert_data = EditorState.coll_tool_mesh_cache.get(en_data["a_model_mesh"], None)
+    if vert_data is None:
+        with np.load(os.path.join(GameState.asset_manager.asset_dir, en_data["a_model_mesh"])) as mesh_data:
+            vert_data = mesh_data["vert_data"]
+            EditorState.coll_tool_mesh_cache[en_data["a_model_mesh"]] = vert_data
+
+    vert_count = vert_data.shape[0] // 3
+    axis_bins = np.zeros((3, vert_count))
+
+    # transform the vertex data
+    for i in range(vert_count):
+        world_vert = test_trans._trans_matrix @ np.array((*vert_data[i * 3: i * 3 + 3], 1.), dtype=np.float32)
+
+        axis_bins[0,i] = world_vert[0]
+        axis_bins[1,i] = world_vert[1]
+        axis_bins[2,i] = world_vert[2]
+
+    # minmax transformed data
+    min_p = Vec3(np.min(axis_bins[0]), np.min(axis_bins[1]), np.min(axis_bins[2]))
+    max_p = Vec3(np.max(axis_bins[0]), np.max(axis_bins[1]), np.max(axis_bins[2]))
+
+    return (min_p, max_p)
+
+def collider_tool_ui():
+    with imgui.begin("Collider Tool"):
+        mode_change, tool_mode = imgui.combo("tool mode", 0, ["AABBs", "AABB Walls"])
+
+        # none or invalid selected
+        # box scale or padding
+
+        imgui.separator()
+
+        if tool_mode == 0: # AABB wrapping mode
+            selected_count = len(EditorState.selected_entities)
+
+            for en in EditorState.selected_entities:
+                t = EditorState.entity_data_storage[en][0]
+
+                if t != "bt_static_mesh":
+                    selected_count = -1
+                    break
+
+            # _, EditorState.coll_tool_coll_name = imgui.input_text("aabb entity name", EditorState.coll_tool_coll_name)
+            _, padding = imgui.drag_float3("aabb padding", *EditorState.coll_tool_padding, change_speed=.01)
+            EditorState.coll_tool_padding = Vec3(padding)
+
+            imgui.spacing(); imgui.spacing()
+
+            # calc AABB
+            if selected_count > 0:
+                min_p = Vec3(float('inf'), float('inf'), float('inf'))
+                max_p = Vec3(-float('inf'), -float('inf'), -float('inf'))
+
+                try:
+                    for en in EditorState.selected_entities:
+                        box = compute_model_bounds(EditorState.entity_data_storage[en][1])
+
+                        min_p.x = min(min_p.x, box[0].x)
+                        min_p.y = min(min_p.y, box[0].y)
+                        min_p.z = min(min_p.z, box[0].z)
+
+                        max_p.x = max(max_p.x, box[1].x)
+                        max_p.y = max(max_p.y, box[1].y)
+                        max_p.z = max(max_p.z, box[1].z)
+                
+                except:
+                    selected_count = -2
+
+                min_p -= EditorState.coll_tool_padding / 2
+                max_p += EditorState.coll_tool_padding / 2
+
+            # preview and export
+
+            if selected_count <= 0:
+                imgui.push_style_var(imgui.STYLE_ALPHA, .5)
+
+            create_coll = imgui.button("add aabb"); imgui.same_line(spacing=8.)
+            _, preview = imgui.checkbox("preview", EditorState.coll_tool_preview_enabled)
+
+            if selected_count <= 0:
+                imgui.pop_style_var()
+
+                imgui.push_style_color(imgui.COLOR_TEXT, 1., .35, .35)
+                imgui.same_line()
+                
+                if selected_count == -2:
+                    imgui.text("error while calculating bounds."); imgui.same_line()
+                    imgui.text_disabled("(?)"); imgui.pop_style_color()
+
+                    if imgui.is_item_hovered():
+                        imgui.set_tooltip("a python exception was raised during boundary calculation.\nmake sure all selected entities are without errors.")
+                elif selected_count == -1:
+                    imgui.text("invalid entities selected."); imgui.same_line()
+                    imgui.text_disabled("(?)"); imgui.pop_style_color()
+
+                    if imgui.is_item_hovered():
+                        imgui.set_tooltip("some selected entities (any that are not bt_static_mesh)\ncan't be used for boundary calculations.")
+                elif selected_count == 0:
+                    imgui.text("no entities selected."); imgui.same_line()
+                    imgui.text_disabled("(?)"); imgui.pop_style_color()
+
+                    if imgui.is_item_hovered():
+                        imgui.set_tooltip("to auto-create an AABB, one or more entities (of type bt_static_mesh) must be selected\nas the wanted elements and guideline to be covered by the AABB.")
+
+            else:
+                EditorState.coll_tool_preview_enabled = preview
+
+                if EditorState.coll_tool_preview_enabled:
+                    gizmo.draw_box(min_p, max_p, Vec3(.35, 1., .9))
+    
+                if create_coll:
+                    imgui.open_popup("create_coll_popup")
+                
+                with imgui.begin_popup("create_coll_popup") as create_popup:
+                    if create_popup.opened:
+                        entered, EditorState.coll_tool_coll_name = imgui.input_text("new entity name", EditorState.coll_tool_coll_name, flags=imgui.INPUT_TEXT_ENTER_RETURNS_TRUE)
+
+                        if entered:
+                            coll_data = {
+                                "t_pos": (min_p + max_p) / 2,
+                                "t_scale": max_p - min_p
+                            }
+
+                            new_en = ("bt_phys_aabb", coll_data)
+                            en_name = get_new_entity_name(EditorState.coll_tool_coll_name)
+
+                            EditorState.has_unsaved_changes = True
+
+                            EditorState.entity_data_storage[en_name] = new_en
+                            EditorState.selected_entities = {en_name}
+
+                            # immidatelly open an editor for the entity
+                            EditorState.entities_in_editing.add(en_name)
+
+                            imgui.close_current_popup()
+
 # == ui defs ==
 
 asset_preview_tex = None
@@ -835,6 +988,10 @@ image_formats = [".jpg", ".png", ".webp", ".bmp", ".tiff", ".gif"]
 
 def asset_browser_ui():
     with imgui.begin("Asset Browser"):
+        if not os.path.exists(EDITOR_ASSET_DIR):
+            imgui.text_disabled(f"Asset path \"{EDITOR_ASSET_DIR}\" doesn't exists")
+            return
+
         for name in os.listdir(EDITOR_ASSET_DIR):
             if os.path.isfile(EDITOR_ASSET_DIR + "/" + name):
                 asset_browser_item(name, name)
@@ -882,7 +1039,7 @@ def editor_process_ui():
 
             imgui.separator()
 
-            _, _ = imgui.menu_item("Collider Tool", selected=False)
+            _, EditorState.is_collider_tool_open = imgui.menu_item("Collider Tool", selected=EditorState.is_collider_tool_open)
             _, EditorState.is_model_importer_open = imgui.menu_item("Model Importer", selected=EditorState.is_model_importer_open)
             _, EditorState.is_dev_con_open = imgui.menu_item("Developer Console", selected=EditorState.is_dev_con_open)
 
@@ -908,6 +1065,9 @@ def editor_process_ui():
 
     if EditorState.is_asset_browser_open:
         asset_browser_ui()
+
+    if EditorState.is_collider_tool_open:
+        collider_tool_ui()
 
     for en in list(EditorState.entities_in_editing): # note: doing a copy here, as [entities_in_editing] might change mid iteration 
         entity_edit_ui(en)
