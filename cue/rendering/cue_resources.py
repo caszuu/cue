@@ -100,7 +100,7 @@ class GPUTexture:
 
     def __del__(self) -> None:
         if sys.meta_path is None: # python is likely shuting down, pyopengl will fail, just let the resources get freed by the os
-            return    
+            return
             
         gl.glDeleteTextures(1, [self.texture_handle])
 
@@ -110,9 +110,12 @@ class GPUTexture:
         gl.glActiveTexture(gl.GL_TEXTURE0 + texture_index)
         gl.glBindTexture(gl.GL_TEXTURE_2D, self.texture_handle)
 
-    def init_null(self, size: tuple[int, int], gl_format: np.uint32, gl_type: np.uint32) -> None:
+    def init_null(self, size: tuple[int, int], gl_format: np.uint32, gl_type: np.uint32, gl_internalformat: np.uint32 | None = None) -> None:
+        if gl_internalformat is None:
+            gl_internalformat = gl_format
+
         gl.glBindTexture(gl.GL_TEXTURE_2D, self.texture_handle)
-        gl.glTexImage2D(gl.GL_TEXTURE_2D, 0, gl_format, size[0], size[1], 0, gl_format, gl_type, None)
+        gl.glTexImage2D(gl.GL_TEXTURE_2D, 0, gl_internalformat, size[0], size[1], 0, gl_format, gl_type, None)
 
         self.texture_format = gl_format
         self.texture_size = size
@@ -120,6 +123,8 @@ class GPUTexture:
     def write_to(self, surf: pg.Surface, gl_format: np.uint32 = gl.GL_RGBA, gl_type: np.uint32 = gl.GL_UNSIGNED_BYTE, pg_format: str = "RGBA") -> None:
         gl.glBindTexture(gl.GL_TEXTURE_2D, self.texture_handle)
         gl.glTexImage2D(gl.GL_TEXTURE_2D, 0, gl_format, surf.get_width(), surf.get_height(), 0, gl_format, gl_type, pg.image.tobytes(surf, pg_format, False)) # textures don't need to flip?
+
+        # gl.glGenerateMipmap(gl.GL_TEXTURE_2D)
 
         self.texture_format = gl_format
         self.texture_size = surf.get_size()

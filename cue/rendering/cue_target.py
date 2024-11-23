@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 import OpenGL.GL as gl
 import numpy as np
 
@@ -8,32 +9,29 @@ from . import cue_camera as cam, cue_scene as sc
 
 # an off-screen framebuffer that a Camera can render into, later can be used as a texture in the scene
 
+@dataclass(init=False, slots=True)
 class RenderTarget:
-    __slots__ = []
-
-    def __init__(self, size: tuple[int, int], attachments: list[tuple[np.uint32, np.uint32, np.uint32]]) -> None:
+    def __init__(self, size: tuple[int, int], attachments: list[tuple[np.uint32, np.uint32, np.uint32, np.uint32]]) -> None:
         self.target_fb = gl.glGenFramebuffers(1)
         self.target_attachments = []
 
         target_attachments = self.target_attachments
         tex_init = GPUTexture.init_null
+
+        gl.glBindFramebuffer(gl.GL_FRAMEBUFFER, self.target_fb)
         
         for i in range(len(attachments)):
             tex = GPUTexture()
-            tex_init(tex, size, attachments[i][1], attachments[i][2])            
+            tex_init(tex, size, attachments[i][2], attachments[i][3], attachments[i][1])            
             
             gl.glFramebufferTexture2D(gl.GL_FRAMEBUFFER, attachments[i][0], gl.GL_TEXTURE_2D, tex.texture_handle, 0)
             target_attachments.append(tex)
 
-    def __del__(self) -> None:
-        gl.glDeleteFramebuffers(1, [self.target_fb])
-
-        # attachment data might still be in use, leave it at the gc
-        #
-        # for attach in self.target_attachments:
-        #     del attach
+        gl.glBindFramebuffer(gl.GL_FRAMEBUFFER, 0)
 
     def try_view_frame(self) -> None:
+        self.current_state = 0
+
         if self.current_state == 0:
             # not yet rendered, view_frame target
 
