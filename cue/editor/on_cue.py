@@ -89,13 +89,15 @@ class EditorState:
     assimp_path: str | None = None
 
     assimp_sel_mesh: int = 0
+    assimp_mesh_scale: np.ndarray = np.array([1., 1., 1.], dtype=np.float32)
     assimp_saved_msg: str | None = None
 
     # == tool states ==
 
     coll_tool_padding: Vec3 = Vec3()
     coll_tool_preview_enabled: bool = True
-    coll_tool_coll_name: str = "blah"
+    coll_tool_coll_name: str = "new_entity_coll"
+    coll_tool_wall_axis: int = 0
     
     coll_tool_mesh_cache: dict[str, np.ndarray] = {}
 
@@ -722,6 +724,8 @@ def model_import_ui() -> None:
                 EditorState.assimp_scene = None
 
             EditorState.assimp_saved_msg = None
+            EditorState.assimp_sel_mesh = 0
+            EditorState.assimp_mesh_scale = np.array([1., 1., 1.], dtype=np.float32)
             
         imgui.same_line()
         imgui.text(f"Model File: {None if EditorState.assimp_path is None else os.path.basename(EditorState.assimp_path)}")
@@ -734,12 +738,20 @@ def model_import_ui() -> None:
 
                 if EditorState.assimp_scene is not None:
                     reload_model, EditorState.assimp_sel_mesh = imgui.combo("selected mesh", EditorState.assimp_sel_mesh, [str(m) for m in EditorState.assimp_scene.meshes])
+                    reload_scale, scale = imgui.drag_float3("mesh scale", *EditorState.assimp_mesh_scale)
+                    if reload_scale:
+                        EditorState.assimp_mesh_scale = np.array(scale, dtype=np.float32)
+
                     imgui.spacing(); imgui.spacing()
 
                     imgui.text(f"Mesh vertex count: {len(EditorState.assimp_scene.meshes[EditorState.assimp_sel_mesh].vertices)}")
                     imgui.text(f"Mesh index count: {len(EditorState.assimp_scene.meshes[EditorState.assimp_sel_mesh].faces) * 3}")
                 else:
                     reload_model, EditorState.assimp_sel_mesh = imgui.combo("selected mesh", 0, [])
+                    reload_scale, scale = imgui.drag_float3("mesh scale", *EditorState.assimp_mesh_scale)
+                    if reload_scale:
+                        EditorState.assimp_mesh_scale = np.array(scale, dtype=np.float32)
+
                     imgui.spacing(); imgui.spacing()
 
                     imgui.text(f"Mesh vertex count: No mesh")
@@ -747,6 +759,7 @@ def model_import_ui() -> None:
 
                 if reload_model:
                     EditorState.assimp_saved_msg = None
+                    EditorState.assimp_mesh_scale = np.array([1., 1., 1.], dtype=np.float32)
 
                 imgui.spacing(); imgui.spacing()
 
@@ -774,8 +787,8 @@ def model_import_ui() -> None:
 
                     if not mesh.texturecoords.any():
                         raise ValueError("No UV components!")
-                    
-                    vert_buf[:] = mesh.vertices.flatten()
+
+                    vert_buf[:] = (mesh.vertices * EditorState.assimp_mesh_scale).flatten()
                     norm_buf[:] = mesh.normals.flatten()
 
                     for vi in range(vert_count):
@@ -828,7 +841,7 @@ def compute_model_bounds(en_data: dict) -> tuple[Vec3, Vec3]:
 
 def collider_tool_ui():
     with imgui.begin("Collider Tool"):
-        mode_change, tool_mode = imgui.combo("tool mode", 0, ["AABBs", "AABB Walls"])
+        _, tool_mode = imgui.combo("tool mode", 0, ["AABBs"])
 
         # none or invalid selected
         # box scale or padding
@@ -845,9 +858,19 @@ def collider_tool_ui():
                     selected_count = -1
                     break
 
-            # _, EditorState.coll_tool_coll_name = imgui.input_text("aabb entity name", EditorState.coll_tool_coll_name)
+            if EditorState.focus_entity is not None:
+                EditorState.coll_tool_coll_name = EditorState.focus_entity
+                
+                stripped_name = EditorState.coll_tool_coll_name.strip("0123456789")
+                if stripped_name.endswith("_"):
+                    EditorState.coll_tool_coll_name = stripped_name[:-1]
+
+                EditorState.coll_tool_coll_name += "_coll"
+
             _, padding = imgui.drag_float3("aabb padding", *EditorState.coll_tool_padding, change_speed=.01)
             EditorState.coll_tool_padding = Vec3(padding)
+
+            _, EditorState.coll_tool_wall_axis = imgui.combo("wall mode", EditorState.coll_tool_wall_axis, ["none", "+x", "+y", "+z", "-x", "-y", "-z"])
 
             imgui.spacing(); imgui.spacing()
 
@@ -873,6 +896,21 @@ def collider_tool_ui():
 
                 min_p -= EditorState.coll_tool_padding / 2
                 max_p += EditorState.coll_tool_padding / 2
+
+                # wall mode
+
+                if EditorState.coll_tool_wall_axis > 0:
+                    axis_index = (EditorState.coll_tool_wall_axis - 1) % 3
+
+                    wall_edge_coord = (min_p[axis_index] + max_p[axis_index]) / 2
+                    wall_thickness = .05
+
+                    if (EditorState.coll_tool_wall_axis - 1) < 3: # if positive dir:
+                        max_p[axis_index] = wall_edge_coord
+                        min_p[axis_index] = wall_edge_coord - wall_thickness
+                    else: # else negative dir:
+                        max_p[axis_index] = wall_edge_coord + wall_thickness
+                        min_p[axis_index] = wall_edge_coord
 
             # preview and export
 
@@ -919,6 +957,7 @@ def collider_tool_ui():
                 with imgui.begin_popup("create_coll_popup") as create_popup:
                     if create_popup.opened:
                         entered, EditorState.coll_tool_coll_name = imgui.input_text("new entity name", EditorState.coll_tool_coll_name, flags=imgui.INPUT_TEXT_ENTER_RETURNS_TRUE)
+                        imgui.text_disabled("enter to confirm, click outside to cancel")
 
                         if entered:
                             coll_data = {

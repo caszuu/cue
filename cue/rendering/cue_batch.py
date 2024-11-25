@@ -21,7 +21,7 @@ class DrawState:
     draw_mesh: GPUMesh
     draw_texture_binds: tuple[GPUTexture]
 
-    # draw_count will mostly be the same as mesh.vertex_count, but can differ (eg. with vertex shaders generating their own data)
+    # draw_count will mostly be the same as mesh.vertex_count / mesh.element_count, but can differ (eg. with vertex shaders generating their own data)
     draw_count: int
 
 # an instance of a mesh (or other) in the RenderScene tree, these can be created and added to RenderScenes
