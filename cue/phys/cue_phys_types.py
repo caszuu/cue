@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from typing import Any
 
 from pygame.math import Vector3 as Vec3
 import numpy as np
@@ -26,6 +27,7 @@ class PhysRay:
 class PhysRayHit:
     pos: np.ndarray
     norm: np.ndarray
+    usr: Any
 
     tmin: float
     tout: float
@@ -47,12 +49,17 @@ EPSILON = np.float32(1e-5)
 @dataclass(slots=True)
 class PhysAABB:
     points: np.ndarray
+    usr: Any = None
 
     @classmethod
-    def make(cls, pos: Vec3, size: Vec3) -> 'PhysAABB':
+    def make(cls, pos: Vec3, size: Vec3, usr_ref: Any = None) -> 'PhysAABB':
         return cls(
-            points = np.array((pos - size / 2, pos + size / 2), dtype=np.float32)
+            points = np.array((pos - size / 2, pos + size / 2), dtype=np.float32),
+            usr = usr_ref,
         )
+
+    def update(self, pos: Vec3, size: Vec3) -> None:
+        self.points = np.array((pos - size / 2, pos + size / 2), dtype=np.float32)
 
     def _find_hit_norm(self, ray_pos: np.ndarray, ray_dir: np.ndarray, ray_box: np.ndarray) -> np.ndarray:
         tmax = float('inf')
@@ -103,7 +110,7 @@ class PhysAABB:
 
         if tmin < tmax:
             hit_pos = ray.o + ray.d * tmin
-            return PhysRayHit(hit_pos, self._find_hit_norm(hit_pos, ray.d, ray.b), tmin, tout)
+            return PhysRayHit(hit_pos, self._find_hit_norm(hit_pos, ray.d, ray.b), self.usr, tmin, tout)
 
     def aabb_intersect(self, other_box: 'PhysAABB') -> bool:
         return all(self.points[0] <= other_box.points[1]) and all(self.points[1] >= other_box.points[0])
