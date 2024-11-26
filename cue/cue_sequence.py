@@ -1,6 +1,7 @@
 from typing import Callable, Any
 from bisect import bisect_left, bisect_right
 
+import time
 import pygame as pg
 
 # == Cue Sequences and Sequencer ==
@@ -155,3 +156,6 @@ def on_event(event_id: int, seq_func: Callable, *args) -> None:
 
 def fire_event(event_id: int, event_data: Any = None) -> None:
     gs.GameState.sequencer.fire_event(event_id, event_data)
+
+# static_sequencer is initialized early by the engine itself as many parts of the engine create events with it at init time
+gs.GameState.static_sequencer = CueSequencer(time.perf_counter())

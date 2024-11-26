@@ -1,11 +1,7 @@
-import json
-from typing import Any
-
+import json, os, time
 from .cue_state import GameState
 
 from .entities.cue_entity_types import EntityTypeRegistry
-from .cue_entity_storage import EntityStorage
-
 from pygame.math import Vector3 as Vec3, Vector2 as Vec2
 
 # from .cue_asset_manager import AssetManager
@@ -57,14 +53,15 @@ from pygame.math import Vector3 as Vec3, Vector2 as Vec2
 
 MAP_LOADER_VERSION = 2
 
-import time
+map_load_evid = GameState.static_sequencer.create_event("builtin.map_loaded")
 
-def reset_map() -> None:
+def reset_state() -> None:
     GameState.entity_storage.reset()
     GameState.sequencer.reset(time.perf_counter())
     
     GameState.active_scene.reset()
     GameState.collider_scene.reset()
+    GameState.trigger_scene.reset()
 
     if hasattr(GameState, "active_camera"):
         del GameState.active_camera
@@ -88,10 +85,14 @@ def load_en_param_types(en_data: dict) -> dict:
 def load_map(file_path: str) -> None:    
     # read the map file
     
-    with open(file_path, 'r') as f:
-        map_file = json.load(f)
+    try:
+        with open(os.path.join(GameState.asset_manager.asset_dir, file_path), 'r') as f:
+            map_file = json.load(f)
+    except FileNotFoundError:
+        with open(file_path, 'r') as f:
+            map_file = json.load(f)
 
-    reset_map()
+    reset_state()
     GameState.current_map = file_path
 
     try:
@@ -113,6 +114,8 @@ def load_map(file_path: str) -> None:
 
     except KeyError:
         raise ValueError("corrupted map file, missing json fields")
+
+    GameState.static_sequencer.fire_event(map_load_evid)
 
 # == Map Compiler ==
 
