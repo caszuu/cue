@@ -28,6 +28,7 @@ class GameState:
     active_camera: 'ren_cam.Camera'
 
     collider_scene: 'phys.PhysScene'
+    trigger_scene: 'phys.PhysScene'
 
     # == global vars ==
 
