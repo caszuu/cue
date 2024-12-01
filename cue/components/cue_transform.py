@@ -45,6 +45,11 @@ class Transform:
         self._scale = scale
         self._update()
 
+    def set_pos_rot(self, pos: pm.Vector3, rot: pm.Vector3) -> None:
+        self._pos = pos
+        self._rot = rot
+        self._update()
+
     def set_parent(self, parent: 'Transform | None') -> None:
         self._parent = parent
 

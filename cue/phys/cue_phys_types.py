@@ -61,6 +61,9 @@ class PhysAABB:
     def update(self, pos: Vec3, size: Vec3) -> None:
         self.points = np.array((pos - size / 2, pos + size / 2), dtype=np.float32)
 
+    def __eq__(self, value: object, /) -> bool:
+        return id(self) == id(value)
+
     def _find_hit_norm(self, ray_pos: np.ndarray, ray_dir: np.ndarray, ray_box: np.ndarray) -> np.ndarray:
         tmax = float('inf')
         face_index = None

@@ -33,6 +33,7 @@ class GameState:
     # == global vars ==
 
     delta_time: float
+    current_time: float
     
     cpu_tick_time: float
     cpu_render_time: float

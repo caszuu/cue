@@ -300,6 +300,171 @@ def add_new_prop(en_data: dict[str, Any], start_name: str, start_value: Any):
         
         i += 1
 
+def props_editor_ui(props_id: str, props_to_edit: dict) -> bool:
+    imgui.push_id(props_id)
+    imgui.push_style_color(imgui.COLOR_FRAME_BACKGROUND, 0., 0., 0., 0.)
+
+    imgui.spacing()
+
+    changed_data = False
+    with imgui.begin_table("Entity Properties", 2, imgui.TABLE_BORDERS | imgui.TABLE_RESIZABLE):
+        imgui.table_next_row()
+        imgui.table_next_column()
+        imgui.text("prop")
+        
+        imgui.table_next_column()
+        imgui.text("value")
+
+        for prop, value in dict(props_to_edit).items():
+            imgui.push_id(prop)
+
+            # prop name
+            imgui.table_next_row()
+            imgui.table_next_column()
+            imgui.push_item_width(-imgui.FLOAT_MIN)
+
+            changed_name, new_prop = imgui.input_text("##prop", prop, flags=imgui.INPUT_TEXT_ENTER_RETURNS_TRUE)
+            if changed_name and not (new_prop in props_to_edit or not new_prop):
+                    # new prop name, rename it
+                    props_to_edit[new_prop] = props_to_edit.pop(prop)
+                    imgui.pop_id()
+                    imgui.push_id(new_prop)
+                    prop = new_prop
+
+            changed_data |= changed_name
+
+            imgui.pop_item_width()
+
+            # prop value
+            imgui.table_next_column()
+            imgui.push_item_width(-imgui.FLOAT_MIN)
+
+            if isinstance(value, bool):
+                imgui.pop_style_color()
+                imgui.set_cursor_pos_x(imgui.get_cursor_pos_x() + imgui.get_content_region_available_width() * .5 - imgui.get_style().frame_padding[0] * 2.)
+
+                changed_val, val = imgui.checkbox("##val", value)
+                props_to_edit[prop] = val
+
+                imgui.push_style_color(imgui.COLOR_FRAME_BACKGROUND, 0., 0., 0., 0.)
+            elif isinstance(value, int | float):
+                changed_val, val = imgui.drag_float("##val", value, .01)
+                props_to_edit[prop] = val
+            elif isinstance(value, Vec2):
+                changed_val, val = imgui.drag_float2("##val", value.x, value.y, .01)
+                props_to_edit[prop] = Vec2(val)
+            elif isinstance(value, Vec3):
+                changed_val, val = imgui.drag_float3("##val", value.x, value.y, value.z, .01)
+                props_to_edit[prop] = Vec3(val)
+            elif isinstance(value, str):
+                changed_val, val = imgui.input_text("##val", value)
+                props_to_edit[prop] = val
+            # elif isinstance(value, list):
+            elif isinstance(value, dict):
+                imgui.pop_style_color()
+                changed_val = props_editor_ui(prop, value)
+                imgui.push_style_color(imgui.COLOR_FRAME_BACKGROUND, 0., 0., 0., 0.)
+            else:
+                imgui.text_disabled(repr(value))
+                changed_val = False
+
+            # prop drag n drop
+
+            # with imgui.begin_drag_drop_source() as drag_drop_src:
+            #         if drag_drop_src.dragging:
+            #             # store into drag_drop buffer
+            #             EditorState.drag_drop_payload_buffer[EditorState.next_payload_id] = props_to_edit[prop]
+            # 
+            #             imgui.set_drag_drop_payload("any_arbit", EditorState.next_payload_id.to_bytes(4, 'little'))
+            #             imgui.text_disabled(repr(props_to_edit[prop]))
+            # 
+            #             EditorState.next_payload_id += 1
+
+            with imgui.begin_drag_drop_target() as drag_drop_dst:
+                if drag_drop_dst.hovered:
+                    payload = imgui.accept_drag_drop_payload("any_arbit")
+                    if payload is not None:
+                        payload_id = int.from_bytes(payload, 'little')
+                        props_to_edit[prop] = EditorState.drag_drop_payload_buffer.pop(payload_id)
+                        changed_val = True
+
+            changed_data |= changed_val
+
+            imgui.pop_item_width()
+            imgui.pop_id()
+
+    imgui.pop_style_color()
+
+    # add button
+
+    if imgui.small_button("add prop"):
+        imgui.open_popup("##add_prop")
+
+    if imgui.is_item_hovered():
+        imgui.begin_tooltip()
+        imgui.text("Adds a new prop to entity props.")
+        imgui.end_tooltip()
+
+    # delete button
+
+    imgui.same_line()
+    if imgui.small_button("delete prop"):
+        imgui.open_popup("##delete_prop")
+
+    if imgui.is_item_hovered():
+        imgui.begin_tooltip()
+        imgui.text("Deletes a prop from entity props.")
+        imgui.end_tooltip()
+    
+    # add menu
+
+    if imgui.begin_popup("##add_prop"):
+        imgui.text("Select prop type to add")
+        imgui.separator()
+
+        if imgui.selectable("Boolean")[0]:
+            add_new_prop(props_to_edit, "new_bool", False)
+            imgui.close_current_popup()
+
+        if imgui.selectable("Number")[0]:
+            add_new_prop(props_to_edit, "new_float", 0.)
+            imgui.close_current_popup()
+
+        if imgui.selectable("Vector 2")[0]:
+            add_new_prop(props_to_edit, "new_vec2", Vec2())
+            imgui.close_current_popup()
+
+        if imgui.selectable("Vector 3")[0]:
+            add_new_prop(props_to_edit, "new_vec3", Vec3())
+            imgui.close_current_popup()
+
+        if imgui.selectable("String / Path")[0]:
+            add_new_prop(props_to_edit, "new_str", "")
+            imgui.close_current_popup()
+
+        if imgui.selectable("Sub-Properties")[0]:
+            add_new_prop(props_to_edit, "new_props", {})
+        
+        imgui.end_popup()
+
+    # delete menu
+    
+    if imgui.begin_popup("##delete_prop"):
+        imgui.text("Select prop to delete")
+        imgui.separator()
+
+        for prop in props_to_edit.keys():
+            if imgui.selectable(prop)[0]:
+                props_to_edit.pop(prop)
+                imgui.close_current_popup()
+                break
+        
+        imgui.end_popup()
+
+    imgui.spacing()
+    imgui.pop_id()
+    return changed_data
+
 def entity_edit_ui(en_name: str):
     edit_id = EditorState.entity_editor_ids.setdefault(en_name, EditorState.next_editor_id)
     if edit_id == EditorState.next_editor_id:
@@ -350,161 +515,9 @@ def entity_edit_ui(en_name: str):
         imgui.text("entity props:")
         imgui.indent()
 
-        imgui.push_style_color(imgui.COLOR_FRAME_BACKGROUND, 0., 0., 0., 0.)
-
-        changed_data = False
-
-        with imgui.begin_table("Entity Properties", 2, imgui.TABLE_BORDERS | imgui.TABLE_RESIZABLE):
-            imgui.table_next_row()
-            imgui.table_next_column()
-            imgui.text("prop")
-            
-            imgui.table_next_column()
-            imgui.text("value")
-
-            for prop, value in dict(en_data).items():
-                imgui.push_id(prop)
-
-                # prop name
-                imgui.table_next_row()
-                imgui.table_next_column()
-                imgui.push_item_width(-imgui.FLOAT_MIN)
-
-                changed_name, new_prop = imgui.input_text("##prop", prop, flags=imgui.INPUT_TEXT_ENTER_RETURNS_TRUE)
-                if changed_name and not (new_prop in en_data or not new_prop):
-                        # new prop name, rename it
-                        en_data[new_prop] = en_data.pop(prop)
-                        imgui.pop_id()
-                        imgui.push_id(new_prop)
-                        prop = new_prop
-
-                changed_data |= changed_name
-
-                imgui.pop_item_width()
-
-                # prop value
-                imgui.table_next_column()
-                imgui.push_item_width(-imgui.FLOAT_MIN)
-
-                if isinstance(value, bool):
-                    imgui.pop_style_color()
-                    imgui.set_cursor_pos_x(imgui.get_cursor_pos_x() + imgui.get_content_region_available_width() * .5 - imgui.get_style().frame_padding[0] * 2.)
-
-                    changed_val, val = imgui.checkbox("##val", value)
-                    en_data[prop] = val
-
-                    imgui.push_style_color(imgui.COLOR_FRAME_BACKGROUND, 0., 0., 0., 0.)
-                elif isinstance(value, int | float):
-                    changed_val, val = imgui.drag_float("##val", value, .01)
-                    en_data[prop] = val
-                elif isinstance(value, Vec2):
-                    changed_val, val = imgui.drag_float2("##val", value.x, value.y, .01)
-                    en_data[prop] = Vec2(val)
-                elif isinstance(value, Vec3):
-                    changed_val, val = imgui.drag_float3("##val", value.x, value.y, value.z, .01)
-                    en_data[prop] = Vec3(val)
-                elif isinstance(value, str):
-                    changed_val, val = imgui.input_text("##val", value)
-                    en_data[prop] = val
-                # elif isinstance(value, list):
-                # elif isinstance(value, dict):
-                else:
-                    imgui.text_disabled(repr(value))
-                    changed_val = False
-
-                # prop drag n drop
-
-                # with imgui.begin_drag_drop_source() as drag_drop_src:
-                #         if drag_drop_src.dragging:
-                #             # store into drag_drop buffer
-                #             EditorState.drag_drop_payload_buffer[EditorState.next_payload_id] = en_data[prop]
-                # 
-                #             imgui.set_drag_drop_payload("any_arbit", EditorState.next_payload_id.to_bytes(4, 'little'))
-                #             imgui.text_disabled(repr(en_data[prop]))
-                # 
-                #             EditorState.next_payload_id += 1
-
-                with imgui.begin_drag_drop_target() as drag_drop_dst:
-                    if drag_drop_dst.hovered:
-                        payload = imgui.accept_drag_drop_payload("any_arbit")
-                        if payload is not None:
-                            payload_id = int.from_bytes(payload, 'little')
-                            en_data[prop] = EditorState.drag_drop_payload_buffer.pop(payload_id)
-                            changed_val = True
-
-                changed_data |= changed_val
-
-                imgui.pop_item_width()
-                imgui.pop_id()
-
-        imgui.pop_style_color()
-
-        # add button
-
-        if imgui.small_button("add prop"):
-            imgui.open_popup("##add_prop")
-
-        if imgui.is_item_hovered():
-            imgui.begin_tooltip()
-            imgui.text("Adds a new prop to entity props.")
-            imgui.end_tooltip()
-
-        # delete button
-
-        imgui.same_line()
-        if imgui.small_button("delete prop"):
-            imgui.open_popup("##delete_prop")
-
-        if imgui.is_item_hovered():
-            imgui.begin_tooltip()
-            imgui.text("Deletes a prop from entity props.")
-            imgui.end_tooltip()
-        
+        changed_data = props_editor_ui("__entity_data", en_data)
+        imgui.spacing()
         imgui.unindent()
-        
-        # add menu
-
-        if imgui.begin_popup("##add_prop"):
-            imgui.text("Select prop type to add")
-            imgui.separator()
-
-            if imgui.selectable("Boolean")[0]:
-                add_new_prop(en_data, "new_bool", False)
-                imgui.close_current_popup()
-
-            if imgui.selectable("Number")[0]:
-                add_new_prop(en_data, "new_float", 0.)
-                imgui.close_current_popup()
-
-            if imgui.selectable("Vector 2")[0]:
-                add_new_prop(en_data, "new_vec2", Vec2())
-                imgui.close_current_popup()
-
-            if imgui.selectable("Vector 3")[0]:
-                add_new_prop(en_data, "new_vec3", Vec3())
-                imgui.close_current_popup()
-
-            if imgui.selectable("String / Path")[0]:
-                add_new_prop(en_data, "new_str", "")
-                imgui.close_current_popup()
-            
-            imgui.end_popup()
-
-        # delete menu
-        
-        if imgui.begin_popup("##delete_prop"):
-            imgui.text("Select prop to delete")
-            imgui.separator()
-
-            for prop in en_data.keys():
-                if imgui.selectable(prop)[0]:
-                    en_data.pop(prop)
-                    imgui.close_current_popup()
-                    break
-            
-            imgui.end_popup()
-
-        imgui.spacing(); imgui.spacing()
 
         dev_error = EditorState.dev_tick_errors.get(en_name, None)
         if dev_error is not None:
@@ -518,6 +531,7 @@ def entity_edit_ui(en_name: str):
             imgui.text("entity status: no entity errors.")
 
         if changed_data:
+            EditorState.dev_tick_storage.pop(en_name, None) # delete previos state to reload entity with changes
             EditorState.dev_tick_errors.pop(en_name, None)
             EditorState.has_unsaved_changes = True
 
@@ -1226,8 +1240,11 @@ def editor_wide_keybinds(e):
     elif e.dict['key'] == pg.K_s and e.dict['mod'] & pg.KMOD_CTRL:
         editor_save_map(EditorState.map_file_path)
 
-    elif e.dict['key'] == pg.K_t and e.dict['mod'] & pg.KMOD_CTRL and EditorState.map_file_path:
-        EDITOR_TEST_PLAY_CALLBACK(EditorState.map_file_path)
+    elif e.dict['key'] == pg.K_t and e.dict['mod'] & pg.KMOD_CTRL :
+        if EditorState.map_file_path:
+            EDITOR_TEST_PLAY_CALLBACK(EditorState.map_file_path)
+        else:    
+            utils.warn("[editor] Test mode cannot be used before the map is saved to disk, please save map first")
 
 def editor_freecam_speed_tick():
     if pg.key.get_mods() & pg.KMOD_SHIFT:
@@ -1242,8 +1259,8 @@ def start_editor():
 
     # init engine
 
-    t = time.perf_counter()
-    GameState.static_sequencer = CueSequencer(t)
+    GameState.current_time = time.perf_counter()
+    GameState.static_sequencer = CueSequencer(GameState.current_time)
     GameState.entity_storage = EntityStorage()
     GameState.asset_manager = AssetManager(EDITOR_ASSET_DIR)
 
@@ -1287,16 +1304,16 @@ def start_editor():
 
             # == tick ==
 
-            dt = time.perf_counter() - t
-            t = time.perf_counter()
+            dt = time.perf_counter() - GameState.current_time
+            GameState.current_time = time.perf_counter()
 
             imgui.new_frame()
 
             GameState.delta_time = dt
             EditorState.ui_ctx.delta_time(dt)
             
-            GameState.sequencer.tick(t)
-            GameState.static_sequencer.tick(t)
+            GameState.sequencer.tick(GameState.current_time)
+            GameState.static_sequencer.tick(GameState.current_time)
 
             if should_exit:
                 ensure_map_saved(lambda: sys.exit(0))
@@ -1338,7 +1355,7 @@ def start_editor():
 
                 del entity_state # delete the ref, so it might get cleaned up if deleted (causes issued if it's the last entity in the map)
 
-            tt = time.perf_counter() - t
+            tt = time.perf_counter() - GameState.current_time
 
             # == frame ==
 
