@@ -11,7 +11,7 @@ from .cue_camera import Camera
 from .cue_scene import RenderScene
 from .cue_resources import GPUTexture
 from .cue_framebuffer import RenderFramebuffer, RenderAttachment
-from .cue_post_pass import PostPass, BloomPostPass
+from .cue_post_pass import PostPass
 from .cue_gizmos import draw_gizmos, init_gizmos
 from ..im2d.imgui_integ import CueImguiContext
 
@@ -53,6 +53,7 @@ class CueRenderer:
 
         self.offscreen_attachments = [
             RenderAttachment(gl.GL_COLOR_ATTACHMENT0, gl.GL_FLOAT, gl.GL_RGB, gl.GL_R11F_G11F_B10F), # render main pass in HDR
+            RenderAttachment(gl.GL_COLOR_ATTACHMENT1, gl.GL_FLOAT, gl.GL_RGB, gl.GL_R11F_G11F_B10F), # bloom pass buffer
             RenderAttachment(gl.GL_DEPTH_ATTACHMENT, external_tex=self.offscreen_depth_buf),
         ]
         self.offscreen_fbs = []
@@ -89,7 +90,6 @@ class CueRenderer:
         main_pass_fb = self.offscreen_fbs[0].fb_handle if self.offscreen_fbs else np.uint32(0)
 
         cam.view_frame(main_pass_fb, scene)
-        draw_gizmos() # draw debug gizmos
 
         # post-process
 
@@ -102,6 +102,9 @@ class CueRenderer:
                 continue
             
             p.dispatch(self.offscreen_fbs[i], self.offscreen_fbs[i + 1].fb_handle)
+
+        # draw debug gizmos
+        draw_gizmos()
 
         # render fullscreen ui
         self.fullscreen_imgui_ctx.set_as_current_context()

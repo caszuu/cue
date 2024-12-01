@@ -20,7 +20,7 @@ CAMERA_UNIFORM_SIZE = 4 * 4 * np.dtype('float32').itemsize
 
 @dataclass(init=False, slots=True)
 class Camera:
-    def __init__(self, aspect_ratio: float, fov: float = 90, near_plane: float = .1, far_plane: float = 100) -> None:
+    def __init__(self, aspect_ratio: float, fov: float = 90, near_plane: float = .1, far_plane: float = 250.) -> None:
         self.cam_pos = pm.Vector3((0., 0., 0.))
         self.cam_rot = pm.Vector3((0., 0., 0.))
 

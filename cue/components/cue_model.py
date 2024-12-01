@@ -1,11 +1,13 @@
-from .. import cue_sequence as seq
 from ..rendering import cue_scene as sc
+from .. import cue_utils as utils
 
-from ..rendering.cue_batch import DrawBatch, DrawInstance
-from ..rendering.cue_resources import GPUMesh, GPUTexture, ShaderPipeline
+from ..rendering.cue_batch import DrawInstance, UniformBindTypes
 from ..cue_state import GameState
-
 from .cue_transform import Transform
+
+import numpy as np
+import OpenGL.GL as gl 
+from pygame.math import Vector3 as Vec3, Vector2 as Vec2
 
 # a generic model rendering component shared between entities
 
@@ -20,6 +22,32 @@ class ModelRenderer:
         if "a_model_albedo" in en_data:
             self.model_textures = (GameState.asset_manager.load_texture(en_data["a_model_albedo"]),)
 
+        self.shader_uniform_data = []
+        if "a_model_uniforms" in en_data:
+            for n, v in en_data["a_model_uniforms"].items():
+                loc = gl.glGetUniformLocation(self.pipeline.shader_program, n)
+
+                if loc == -1:
+                    utils.warn(f"[ModelRenderer] failed to get uniform \"{n}\"")
+
+                if isinstance(v, float):
+                    t = UniformBindTypes.FLOAT1
+                    v = np.float32(v)
+                elif isinstance(v, int):
+                    t = UniformBindTypes.SINT1
+                    v = np.int32(v)
+                elif isinstance(v, Vec2):
+                    t = UniformBindTypes.FLOAT2
+                    v = np.array(v, dtype=np.float32)
+                elif isinstance(v, Vec3):
+                    t = UniformBindTypes.FLOAT3
+                    v = np.array(v, dtype=np.float32)
+                else:
+                    utils.error(f"[ModelRenderer] value \"{v}\" cannot be used for a gl uniform")
+                    continue
+
+                self.shader_uniform_data.append((t, loc, v))
+
         self.model_opaque = True
         if en_data.get("a_model_transparent", False):
             self.model_opaque = False
@@ -28,7 +56,7 @@ class ModelRenderer:
             target_scene = GameState.active_scene
 
         self.scene = target_scene
-        self.draw_ins = DrawInstance(self.mesh, self.pipeline, self.model_textures, self.model_opaque, en_trans)
+        self.draw_ins = DrawInstance(self.mesh, self.pipeline, self.model_textures, self.model_opaque, self.shader_uniform_data, en_trans)
 
         self.model_transform = en_trans
 
