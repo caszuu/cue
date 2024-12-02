@@ -82,6 +82,7 @@ def load_en_param_types(en_data: dict) -> dict:
     return params
 
 # loads and parses a map file into EntityStorage and AssetManager, this function should be called within a "loading screen" context
+# WARN: this function is NOT safe to call from sequence triggered code, as later sequences might operate on the newly loaded map aka UB, use load_map_when_safe in sequence contexts
 def load_map(file_path: str) -> None:    
     # read the map file
     
@@ -94,6 +95,8 @@ def load_map(file_path: str) -> None:
 
     reset_state()
     GameState.current_map = file_path
+    if hasattr(GameState, "next_map_deferred"):
+        del GameState.next_map_deferred
 
     try:
         # validate map
@@ -116,6 +119,10 @@ def load_map(file_path: str) -> None:
         raise ValueError("corrupted map file, missing json fields")
 
     GameState.static_sequencer.fire_event(map_load_evid)
+
+# functions same as load_map, but it's safe to call from a seqencer context
+def load_map_when_safe(file_path: str):
+    GameState.next_map_deferred = file_path
 
 # == Map Compiler ==
 

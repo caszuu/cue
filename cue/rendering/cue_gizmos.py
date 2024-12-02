@@ -28,6 +28,39 @@ class CueGizmos:
 # size is: float32 size == 4, 3 floats per vec, 2 vecs per vert
 GIZMO_VERT_SIZE = np.dtype('float32').itemsize * 3 * 2
 
+GIZMO_VERT_SRC = """
+#version 330
+
+// a simple built-in gizmo shader
+
+layout(std140) uniform cue_camera_buf {
+    mat4 bt_cam_mat;
+};
+
+layout(location = 0) in vec3 pos;
+layout(location = 1) in vec3 col;
+
+out vec3 frag_col;
+
+void main() {
+    gl_Position = bt_cam_mat * vec4(pos, 1.);
+    frag_col = col;
+}
+"""
+
+GIZMO_FRAG_SRC = """
+#version 330
+
+// a simple built-in gizmo shader
+
+in vec3 frag_col;
+out vec4 frag;
+
+void main() {
+    frag = vec4(frag_col, 1.);
+}
+"""
+
 # == gizmo api ==
 
 def draw_line(pos1: Vec3, pos2: Vec3, col1: Vec3 = Vec3(1, 1, 1), col2: Vec3 = Vec3(1, 1, 1)) -> None:
@@ -93,7 +126,7 @@ def init_gizmos() -> None:
     gl.glVertexAttribPointer(1, 3, gl.GL_FLOAT, False, 6 * 4, ctypes.c_void_p(3 * 4))
     gl.glEnableVertexAttribArray(1)
 
-    CueGizmos.draw_shader = ShaderPipeline(open(os.path.dirname(__file__) + "/gizmo_draw.vert", 'r').read(), open(os.path.dirname(__file__) + "/gizmo_draw.frag", 'r').read(), "gizmo_draw")
+    CueGizmos.draw_shader = ShaderPipeline(GIZMO_VERT_SRC, GIZMO_FRAG_SRC, "gizmo_draw")
 
 def draw_gizmos() -> None:
     if not CueGizmos.draw_stack:

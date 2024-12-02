@@ -39,3 +39,4 @@ class GameState:
     cpu_render_time: float
 
     current_map: str
+    next_map_deferred: str

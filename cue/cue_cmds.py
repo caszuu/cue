@@ -28,14 +28,14 @@ def map_cmd(args: list[str]):
 
     # try from asset dir
     try:
-        cue_map.load_map(GameState.asset_manager.asset_dir + "/" + args[0])
+        cue_map.load_map_when_safe(GameState.asset_manager.asset_dir + "/" + args[0])
         return
     except FileNotFoundError:
         pass
 
     # try as a full path
     try:
-        cue_map.load_map(args[0])
+        cue_map.load_map_when_safe(args[0])
         return
     except FileNotFoundError:
         pass
@@ -61,6 +61,6 @@ def reload_cmd(args: list[str]):
     # flush cache and reload assets
     GameState.asset_manager.reset()
 
-    cue_map.load_map(GameState.current_map)
+    cue_map.load_map_when_safe(GameState.current_map)
 
 utils.add_dev_command("reload", reload_cmd)

@@ -1302,6 +1302,9 @@ def start_editor():
             
             EditorState.editor_freecam.set_capture(pg.mouse.get_pressed()[2])
 
+            if hasattr(GameState, "next_map_deferred"):
+                map.load_map(GameState.next_map_deferred)
+
             # == tick ==
 
             dt = time.perf_counter() - GameState.current_time

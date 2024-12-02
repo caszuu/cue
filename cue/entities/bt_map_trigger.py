@@ -24,7 +24,7 @@ class BtMapTrigger:
 
     def on_triggered(self) -> None:
         if self.is_enabled:
-            cue_map.load_map(self.next_map)
+            cue_map.load_map_when_safe(self.next_map)
 
     # == entity hooks ==
 
