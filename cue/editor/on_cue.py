@@ -98,6 +98,7 @@ class EditorState:
     coll_tool_preview_enabled: bool = True
     coll_tool_coll_name: str = "new_entity_coll"
     coll_tool_wall_axis: int = 0
+    coll_tool_subscene_id: str = ""
     
     coll_tool_mesh_cache: dict[str, np.ndarray] = {}
 
@@ -885,6 +886,11 @@ def collider_tool_ui():
             EditorState.coll_tool_padding = Vec3(padding)
 
             _, EditorState.coll_tool_wall_axis = imgui.combo("wall mode", EditorState.coll_tool_wall_axis, ["none", "+x", "+y", "+z", "-x", "-y", "-z"])
+            _, EditorState.coll_tool_subscene_id = imgui.input_text("subscene id", EditorState.coll_tool_subscene_id); imgui.same_line()
+            imgui.text_disabled("(?)")
+
+            if imgui.is_item_hovered():
+                imgui.set_tooltip("Phys subscenes are a manual optimalization for grouping spacially adjacent colliders.\nit allows high collider detail areas to not affect performace when not near the test ray.\n\nuse any string as the subscene id and separate by dots for multi-level subscenes\n(eg. `r1`, `r1.f2`, `r1.stairs.top`; `` for top-level scene / don't use subscenes)")
 
             imgui.spacing(); imgui.spacing()
 
@@ -976,7 +982,8 @@ def collider_tool_ui():
                         if entered:
                             coll_data = {
                                 "t_pos": (min_p + max_p) / 2,
-                                "t_scale": max_p - min_p
+                                "t_scale": max_p - min_p,
+                                "phys_subscene_id": EditorState.coll_tool_subscene_id,
                             }
 
                             new_en = ("bt_phys_aabb", coll_data)

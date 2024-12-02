@@ -49,12 +49,15 @@ EPSILON = np.float32(1e-5)
 @dataclass(slots=True)
 class PhysAABB:
     points: np.ndarray
+    
+    sub_id: str = ""
     usr: Any = None
 
     @classmethod
-    def make(cls, pos: Vec3, size: Vec3, usr_ref: Any = None) -> 'PhysAABB':
+    def make(cls, pos: Vec3, size: Vec3, usr_ref: Any = None, sub_id: str = "") -> 'PhysAABB':
         return cls(
             points = np.array((pos - size / 2, pos + size / 2), dtype=np.float32),
+            sub_id = sub_id,
             usr = usr_ref,
         )
 
@@ -125,6 +128,8 @@ class PhysHalfPlanes:
     plane_dir_buf: np.ndarray
 
     plane_count: int
+
+    sub_id: str = ""
 
     # @classmethod
     # def make(cls, )

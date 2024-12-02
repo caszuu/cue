@@ -17,7 +17,7 @@ from .cue_entity_utils import handle_transform_edit_mode
 @dataclass(init=False, slots=True)
 class BtPhysAABB:
     def __init__(self, en_data: dict) -> None:
-        self.en_aabb = PhysAABB.make(en_data["t_pos"], en_data["t_scale"])
+        self.en_aabb = PhysAABB.make(en_data["t_pos"], en_data["t_scale"], None, en_data.get("phys_subscene_id", ""))
         self.en_trans = Transform(en_data["t_pos"], Vec3(0., 0., 0.), en_data["t_scale"])
         
         GameState.collider_scene.add_coll(self.en_aabb)
@@ -70,6 +70,7 @@ def gen_def_data():
     return {
         "t_pos": None, # will be filled by "suggested_initial_pos"
         "t_scale": Vec3(1., 1., 1.),
+        "phys_subscene_id": "",
     }
 
 en.create_entity_type("bt_phys_aabb", spawn_phys_aabb, BtPhysAABB.despawn, dev_phys_aabb, gen_def_data)
