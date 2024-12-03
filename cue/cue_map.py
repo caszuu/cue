@@ -53,6 +53,7 @@ from pygame.math import Vector3 as Vec3, Vector2 as Vec2
 
 MAP_LOADER_VERSION = 2
 
+map_reset_evid = GameState.static_sequencer.create_event("builtin.map_reset")
 map_load_evid = GameState.static_sequencer.create_event("builtin.map_loaded")
 
 def reset_state() -> None:
@@ -94,6 +95,8 @@ def load_map(file_path: str) -> None:
             map_file = json.load(f)
 
     reset_state()
+    GameState.static_sequencer.fire_event(map_reset_evid)
+
     GameState.current_map = file_path
     if hasattr(GameState, "next_map_deferred"):
         del GameState.next_map_deferred
