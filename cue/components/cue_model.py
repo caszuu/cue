@@ -1,7 +1,7 @@
 from ..rendering import cue_scene as sc
 from .. import cue_utils as utils
 
-from ..rendering.cue_batch import DrawInstance, UniformBindTypes
+from ..rendering.cue_batch import DrawInstance, UniformBindTypes, UniformBind
 from ..cue_state import GameState
 from .cue_transform import Transform
 
@@ -46,7 +46,7 @@ class ModelRenderer:
                     utils.error(f"[ModelRenderer] value \"{v}\" cannot be used for a gl uniform")
                     continue
 
-                self.shader_uniform_data.append((t, loc, v))
+                self.shader_uniform_data.append(UniformBind(t, loc, v))
 
         self.model_opaque = True
         if en_data.get("a_model_transparent", False):
@@ -65,7 +65,7 @@ class ModelRenderer:
         self.is_visible = False
         self.show()
 
-    def __del__(self) -> None:
+    def despawn(self) -> None:
         if self.is_visible:
             self.scene.remove(self.draw_ins)
 

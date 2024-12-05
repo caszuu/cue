@@ -30,14 +30,14 @@ class GPUMesh:
 
     # mutator funcs
 
-    def write_to(self, pos_data = None, norm_data = None, uv_data = None, vertex_count: int = 0, ebo_data = None, element_count: int = 0) -> None:
+    def write_to(self, pos_data = None, norm_data = None, uv_data = None, vertex_count: int = 0, ebo_data = None, element_count: int = 0, gl_usage: np.uint32 = gl.GL_STATIC_DRAW) -> None:
         gl.glBindVertexArray(self.mesh_vao)
 
         # pos
 
         gl.glBindBuffer(gl.GL_ARRAY_BUFFER, self.mesh_pos_vbo)
         if pos_data is not None:
-            gl.glBufferData(gl.GL_ARRAY_BUFFER, pos_data, gl.GL_STATIC_DRAW)
+            gl.glBufferData(gl.GL_ARRAY_BUFFER, pos_data, gl_usage)
             self.vertex_count = vertex_count
         
         gl.glVertexAttribPointer(0, 3, gl.GL_FLOAT, False, 3 * 4, None)
@@ -47,7 +47,7 @@ class GPUMesh:
 
         gl.glBindBuffer(gl.GL_ARRAY_BUFFER, self.mesh_norm_vbo)
         if norm_data is not None:
-            gl.glBufferData(gl.GL_ARRAY_BUFFER, norm_data, gl.GL_STATIC_DRAW)
+            gl.glBufferData(gl.GL_ARRAY_BUFFER, norm_data, gl_usage)
             self.vertex_count = vertex_count
 
         gl.glVertexAttribPointer(1, 3, gl.GL_FLOAT, False, 3 * 4, None)
@@ -57,7 +57,7 @@ class GPUMesh:
 
         gl.glBindBuffer(gl.GL_ARRAY_BUFFER, self.mesh_uv_vbo)
         if uv_data is not None:
-            gl.glBufferData(gl.GL_ARRAY_BUFFER, uv_data, gl.GL_STATIC_DRAW)
+            gl.glBufferData(gl.GL_ARRAY_BUFFER, uv_data, gl_usage)
             self.vertex_count = vertex_count
 
         gl.glVertexAttribPointer(2, 2, gl.GL_FLOAT, False, 2 * 4, None)
@@ -70,7 +70,7 @@ class GPUMesh:
                 self.mesh_ebo = gl.glGenBuffers(1)
 
             gl.glBindBuffer(gl.GL_ELEMENT_ARRAY_BUFFER, self.mesh_ebo)
-            gl.glBufferData(gl.GL_ELEMENT_ARRAY_BUFFER, ebo_data, gl.GL_STATIC_DRAW)
+            gl.glBufferData(gl.GL_ELEMENT_ARRAY_BUFFER, ebo_data, gl_usage)
             self.element_count = element_count
 
         gl.glBindVertexArray(0)

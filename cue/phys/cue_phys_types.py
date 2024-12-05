@@ -99,6 +99,7 @@ class PhysAABB:
 
         return -aabb_normal_lookup_table[face_index]
 
+    @np.errstate(all='ignore')
     def ray_cast(self, ray: PhysRay, tmax: float) -> PhysRayHit | None:
         tmin = 0.
         tout = -float('inf')

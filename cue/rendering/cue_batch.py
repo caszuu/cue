@@ -25,38 +25,6 @@ class DrawState:
     # draw_count will mostly be the same as mesh.vertex_count / mesh.element_count, but can differ (eg. with vertex shaders generating their own data)
     draw_count: int
 
-# an instance of a mesh (or other) in the RenderScene tree, these can be created and added to RenderScenes
-# by external code to add new draws to the frame
-
-@dataclass(init=False, slots=True)
-class DrawInstance:
-    def __init__(self, mesh: GPUMesh, pipeline: ShaderPipeline, texture_binds: tuple[GPUTexture], is_opaque: bool, uniform_data: list[tuple[int, np.uint32, Any]], trans: Transform | None, draw_count_override: int | None = None) -> None:
-        has_elements = mesh.mesh_ebo is not None
-        draw_count = draw_count_override if draw_count_override is not None else (mesh.element_count if has_elements else mesh.vertex_count)
-        self.draw_state = DrawState(pipeline, mesh, texture_binds, draw_count)
-
-        self.model_transform = trans
-        self.is_opaque = is_opaque
-
-        self.uniform_data = uniform_data
-
-    def __hash__(self) -> int:
-        return hash((self.draw_state, self.model_transform))
-
-    # non-opaque only methods
-
-    def view_depth(self, cam_mat: np.ndarray) -> float:
-        return (cam_mat @ np.array((*self.model_transform._pos, 1.), dtype=np.float32))[2]
-
-    model_transform: Transform | None
-    uniform_data: list[tuple[int, np.uint32, Any]]
-    
-    draw_state: DrawState
-    is_opaque: bool
-
-# rendering batch contain semi-local runtime buffers
-# for each object being instanced (mesh, point, etc.)
-
 class UniformBindTypes:
     FLOAT1 = 0
     FLOAT2 = 1
@@ -67,6 +35,47 @@ class UniformBindTypes:
     SINT2 = 5
     SINT3 = 6
     SINT4 = 7
+
+@dataclass(slots=True)
+class UniformBind:
+    bind_type: int
+    bind_loc: np.uint32
+    bind_value: Any
+
+# an instance of a mesh (or other) in the RenderScene tree, these can be created and added to RenderScenes
+# by external code to add new draws to the frame
+
+@dataclass(init=False, slots=True)
+class DrawInstance:
+    def __init__(self, mesh: GPUMesh, pipeline: ShaderPipeline, texture_binds: tuple[GPUTexture], is_opaque: bool, uniform_data: list[UniformBind], trans: Transform | None, draw_count_override: int | None = None) -> None:
+        has_elements = mesh.mesh_ebo is not None
+        draw_count = draw_count_override if draw_count_override is not None else (mesh.element_count if has_elements else mesh.vertex_count)
+        self.draw_state = DrawState(pipeline, mesh, texture_binds, draw_count)
+
+        self.model_transform = trans
+        self.is_opaque = is_opaque
+
+        self.uniform_data = uniform_data
+
+    def __hash__(self) -> int:
+        return id(self)
+
+    def __eq__(self, value: object, /) -> bool:
+        return id(self) == id(value)
+
+    # non-opaque only methods
+
+    def view_depth(self, cam_mat: np.ndarray) -> float:
+        return (cam_mat @ np.array((*self.model_transform._pos, 1.), dtype=np.float32))[2]
+
+    model_transform: Transform | None
+    uniform_data: list[UniformBind]
+    
+    draw_state: DrawState
+    is_opaque: bool
+
+# rendering batch contain semi-local runtime buffers
+# for each object being instanced (mesh, point, etc.)
 
 UNIFORM_BIND_SET_TYPE = {
     UniformBindTypes.FLOAT1: gl.glUniform1fv,
@@ -106,8 +115,8 @@ class DrawBatch:
         if self.model_mat_loc != -1:
             gl.glUniformMatrix4fv(self.model_mat_loc, 1, True, ins.model_transform._trans_matrix)
 
-        for t, loc, v in ins.uniform_data:
-            UNIFORM_BIND_SET_TYPE[t](loc, 1, v)
+        for b in ins.uniform_data:
+            UNIFORM_BIND_SET_TYPE[b.bind_type](b.bind_loc, 1, b.bind_value)
 
         if self.has_elements:
             gl.glDrawElements(gl.GL_TRIANGLES, self.draw_count, gl.GL_UNSIGNED_INT, None)
@@ -119,8 +128,8 @@ class DrawBatch:
         if ins.model_transform is not None:
             self.model_mat_buffer.append(ins.model_transform._trans_matrix)
 
-        for t, loc, v in ins.uniform_data:
-            self.uniform_instance_data_buffer.setdefault(loc, (t, []))[1].append(v)
+        for b in ins.uniform_data:
+            self.uniform_instance_data_buffer.setdefault(b.bind_loc, (b.bind_type, []))[1].append(b.bind_value)
 
         self.instance_count += 1
 
