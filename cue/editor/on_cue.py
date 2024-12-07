@@ -230,7 +230,11 @@ def editor_load_map(path: str | None = None) -> None:
 
     # clear the map data
     editor_new_map()
+    
     EditorState.map_file_path = path
+    GameState.current_map = path
+    if hasattr(GameState, "next_map_deferred"):
+        del GameState.next_map_deferred
 
     # load up the map file
 

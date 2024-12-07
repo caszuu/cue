@@ -125,6 +125,9 @@ def load_map(file_path: str) -> None:
 
 # functions same as load_map, but it's safe to call from a seqencer context
 def load_map_when_safe(file_path: str):
+    if (not os.path.exists(os.path.join(GameState.asset_manager.asset_dir, file_path))) and not os.path.exists(file_path):
+        raise FileNotFoundError(f"No such file or directory: '{file_path}'")
+
     GameState.next_map_deferred = file_path
 
 # == Map Compiler ==
