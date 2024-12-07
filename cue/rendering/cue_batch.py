@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Callable
 import OpenGL.GL as gl
 import numpy as np
 from .cue_resources import GPUMesh, GPUTexture, ShaderPipeline
@@ -22,8 +22,12 @@ class DrawState:
     draw_mesh: GPUMesh
     draw_texture_binds: tuple[GPUTexture]
 
+    draw_batch_setup_cb: None | Callable[[], None]
+    draw_batch_restore_cb: None | Callable[[], None]
+
     # draw_count will mostly be the same as mesh.vertex_count / mesh.element_count, but can differ (eg. with vertex shaders generating their own data)
     draw_count: int
+    draw_mode: np.uint32
 
 class UniformBindTypes:
     FLOAT1 = 0
@@ -47,10 +51,10 @@ class UniformBind:
 
 @dataclass(init=False, slots=True)
 class DrawInstance:
-    def __init__(self, mesh: GPUMesh, pipeline: ShaderPipeline, texture_binds: tuple[GPUTexture], is_opaque: bool, uniform_data: list[UniformBind], trans: Transform | None, draw_count_override: int | None = None) -> None:
+    def __init__(self, mesh: GPUMesh, pipeline: ShaderPipeline, texture_binds: tuple[GPUTexture], is_opaque: bool, uniform_data: list[UniformBind], trans: Transform | None, batch_setup_cb: None | Callable[[], None] = None, batch_restore_cb: None | Callable[[], None] = None, draw_mode: np.uint32 = gl.GL_TRIANGLES, draw_count_override: int | None = None) -> None:
         has_elements = mesh.mesh_ebo is not None
         draw_count = draw_count_override if draw_count_override is not None else (mesh.element_count if has_elements else mesh.vertex_count)
-        self.draw_state = DrawState(pipeline, mesh, texture_binds, draw_count)
+        self.draw_state = DrawState(pipeline, mesh, texture_binds, batch_setup_cb, batch_restore_cb, draw_count, draw_mode)
 
         self.model_transform = trans
         self.is_opaque = is_opaque
@@ -100,6 +104,9 @@ class DrawBatch:
 
         self.has_elements = state.draw_mesh.mesh_ebo is not None
         self.draw_count = state.draw_count
+        self.draw_mode = state.draw_mode
+        self.draw_batch_setup_cb = state.draw_batch_setup_cb
+        self.draw_batch_restore_cb = state.draw_batch_restore_cb
         self.draw_state = state
 
         self.model_mat_buffer = []
@@ -108,6 +115,9 @@ class DrawBatch:
 
     def draw_instance(self, ins: DrawInstance) -> None:
         gl.glBindVertexArray(self.batch_vao)
+
+        if self.draw_batch_setup_cb is not None:
+            self.draw_batch_setup_cb()
 
         global perfc_submit_count
         perfc_submit_count += 1
@@ -119,9 +129,12 @@ class DrawBatch:
             UNIFORM_BIND_SET_TYPE[b.bind_type](b.bind_loc, 1, b.bind_value)
 
         if self.has_elements:
-            gl.glDrawElements(gl.GL_TRIANGLES, self.draw_count, gl.GL_UNSIGNED_INT, None)
+            gl.glDrawElements(self.draw_mode, self.draw_count, gl.GL_UNSIGNED_INT, None)
         else:
-            gl.glDrawArrays(gl.GL_TRIANGLES, 0, self.draw_count)
+            gl.glDrawArrays(self.draw_mode, 0, self.draw_count)
+
+        if self.draw_batch_restore_cb is not None:
+            self.draw_batch_restore_cb()
 
     # *hot* function, make fast as possible
     def append_instance(self, ins: DrawInstance) -> None:
@@ -142,6 +155,9 @@ class DrawBatch:
 
         gl.glBindVertexArray(self.batch_vao)
 
+        if self.draw_batch_setup_cb is not None:
+            self.draw_batch_setup_cb()
+
         global perfc_submit_count
         perfc_submit_count += 1
         
@@ -157,11 +173,14 @@ class DrawBatch:
         # dispatch instanced draw
 
         if self.has_elements:
-            gl.glDrawElementsInstanced(gl.GL_TRIANGLES, self.draw_count, gl.GL_UNSIGNED_INT, None, self.instance_count)
+            gl.glDrawElementsInstanced(self.draw_mode, self.draw_count, gl.GL_UNSIGNED_INT, None, self.instance_count)
         else:
-            gl.glDrawArraysInstanced(gl.GL_TRIANGLES, 0, self.draw_count, self.instance_count)
+            gl.glDrawArraysInstanced(self.draw_mode, 0, self.draw_count, self.instance_count)
 
         # reset batch
+
+        if self.draw_batch_restore_cb is not None:
+            self.draw_batch_restore_cb()
 
         self.instance_count = 0
         self.model_mat_buffer = []
@@ -178,5 +197,8 @@ class DrawBatch:
     
     has_elements: bool
     draw_count: int
+    draw_mode: np.uint32
+    draw_batch_setup_cb: None | Callable[[], None]
+    draw_batch_restore_cb: None | Callable[[], None]
 
     draw_state: DrawState

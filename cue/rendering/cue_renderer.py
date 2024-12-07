@@ -36,6 +36,8 @@ class CueRenderer:
         # setup opengl attribs
 
         pg.display.gl_set_attribute(pg.GL_CONTEXT_PROFILE_MASK, pg.GL_CONTEXT_PROFILE_CORE)
+        pg.display.gl_set_attribute(pg.GL_CONTEXT_MAJOR_VERSION, 3)
+        pg.display.gl_set_attribute(pg.GL_CONTEXT_MINOR_VERSION, 3)
 
         # init window
 
@@ -61,8 +63,6 @@ class CueRenderer:
         self.post_passes = []
         self.cpu_frame_time = 0.
         self.draw_call_count = 0
-
-        # self.activate_post_pass(BloomPostPass(self.win_res))
 
         GameState.static_sequencer.on_event(pg.VIDEORESIZE, self._on_resize)
         init_gizmos()

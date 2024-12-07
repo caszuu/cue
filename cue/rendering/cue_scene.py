@@ -80,7 +80,7 @@ class RenderScene:
 
         draw_instance = DrawBatch.draw_instance
         draw_batch = DrawBatch.draw_batch
-        append = DrawBatch.append_instance
+        draw_append = DrawBatch.append_instance
 
         def process_batch(state, batch, ins_buf):
             pipe_bind(state.draw_pipeline)
@@ -94,7 +94,7 @@ class RenderScene:
             
             # batch draw instances into instanced draw calls
             for ins in ins_buf:
-                append(batch, ins)
+                draw_append(batch, ins)
             draw_batch(batch)
 
         # opaque pass

@@ -12,7 +12,7 @@ from pygame.math import Vector3 as Vec3, Vector2 as Vec2
 # a generic model rendering component shared between entities
 
 class ModelRenderer:
-    def __init__(self, en_data: dict, en_trans: Transform, target_scene: 'sc.RenderScene | None' = None) -> None:
+    def __init__(self, en_data: dict, en_trans: Transform | None, target_scene: 'sc.RenderScene | None' = None) -> None:
         # load assets from preload or disk
         
         self.mesh = GameState.asset_manager.load_mesh(en_data["a_model_mesh"])
@@ -65,9 +65,14 @@ class ModelRenderer:
         self.is_visible = False
         self.show()
 
+    # despawn on __del__ due to use in editor (and dev_ticks)
+    def __del__(self) -> None:
+        self.despawn()
+
     def despawn(self) -> None:
         if self.is_visible:
             self.scene.remove(self.draw_ins)
+            self.is_visible = False
 
     # start rendering this model if hidden
     def show(self) -> None:
