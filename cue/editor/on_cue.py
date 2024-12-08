@@ -1061,6 +1061,9 @@ def asset_browser_ui():
                 asset_browser_item(name, name)
             else:
                 recurse_asset_subdir(EDITOR_ASSET_DIR + "/" + name, name + "/")
+        
+        imgui.separator()
+        imgui.text_disabled("drag your assets out of the browser to\nyour entity editors")
 
 # this is the `main` editor func where we dispatch work based on user's input
 def editor_process_ui():

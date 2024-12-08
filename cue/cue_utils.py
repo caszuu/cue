@@ -126,6 +126,8 @@ def show_developer_console() -> bool:
     global cmd_buffer
     GameState.renderer.fullscreen_imgui_ctx.set_as_current_context()
 
+    imgui.set_next_window_size(450, 350, condition=imgui.FIRST_USE_EVER)
+
     if not imgui.begin("Dev Console", closable=True)[1]:
         imgui.end()
         return False
