@@ -15,38 +15,39 @@ class BtStaticMesh:
         self.mesh_trans = Transform(Vec3(en_data["t_pos"]), Vec3(en_data["t_rot"]), Vec3(en_data["t_scale"]))
         self.mesh_renderer = ModelRenderer(en_data, self.mesh_trans)
 
-    # def __del__(self) -> None:
-    #     pass
+    # == entity hooks ==
+
+    @staticmethod
+    def spawn(en_data: dict) -> 'BtStaticMesh':
+        return BtStaticMesh(en_data)
 
     def despawn(self) -> None:
         self.mesh_renderer.despawn()
 
+    # since BtStaticMesh is already static, we can simply use it directly instead of faking it for the editor
+    @staticmethod
+    def dev_tick(s: dict | None, dev_state: en.DevTickState, en_data: dict) -> dict:
+        if s is None:
+            # init mesh
+
+            if en_data["t_pos"] is None:
+                en_data["t_pos"] = dev_state.suggested_initial_pos
+
+            s = {"mesh": BtStaticMesh(en_data), "en_data": dict(en_data)}
+        elif en_data != s["en_data"]:
+            # update mesh
+            del s["mesh"]
+            s["mesh"] = BtStaticMesh(en_data)
+            s["en_data"] = dict(en_data)
+
+        if dev_state.is_entity_selected:
+            # handle trasnsform editing
+            handle_transform_edit_mode(s, dev_state, en_data)
+
+        return s
+
     mesh_trans: Transform
     mesh_renderer: ModelRenderer
-
-def spawn_static_mesh(en_data: dict) -> BtStaticMesh:
-    return BtStaticMesh(en_data)
-
-# since BtStaticMesh is already static, we can simply use it directly instead of faking it for the editor
-def dev_static_mesh(s: dict | None, dev_state: en.DevTickState, en_data: dict) -> dict:
-    if s is None:
-        # init mesh
-
-        if en_data["t_pos"] is None:
-            en_data["t_pos"] = dev_state.suggested_initial_pos
-
-        s = {"mesh": BtStaticMesh(en_data), "en_data": dict(en_data)}
-    elif en_data != s["en_data"]:
-        # update mesh
-        del s["mesh"]
-        s["mesh"] = BtStaticMesh(en_data)
-        s["en_data"] = dict(en_data)
-
-    if dev_state.is_entity_selected:
-        # handle trasnsform editing
-        handle_transform_edit_mode(s, dev_state, en_data)
-
-    return s
 
 def gen_def_data():
     return {
@@ -61,5 +62,5 @@ def gen_def_data():
         "a_model_uniforms": {},
     }
 
-en.create_entity_type("bt_static_mesh", spawn_static_mesh, BtStaticMesh.despawn, dev_static_mesh, gen_def_data)
+en.create_entity_type("bt_static_mesh", BtStaticMesh.spawn, BtStaticMesh.despawn, BtStaticMesh.dev_tick, gen_def_data)
 
